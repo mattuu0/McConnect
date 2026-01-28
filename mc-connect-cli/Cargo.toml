@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-futures-channel = "0.3.31"
-futures-util = "0.3.31"
+mc-connect-core = { path = "../mc-connect-core" }
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "*"
+clap = { version = "4.4", features = ["derive"] }
+env_logger = "0.11"
+log = "0.4"
+anyhow = "1.0"
+url = "2.5"
