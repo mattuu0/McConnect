@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub enum Protocol {
     /// 通常の TCP 通信
     TCP,
+    /// UDP 通信
+    UDP,
 }
 
 /// 通信制御やデータ転送のためのコマンドを定義します。
@@ -16,6 +18,10 @@ pub enum Command {
     /// 接続初期化応答 (Server -> Client)
     /// サーバーがターゲットへの接続成否を返します。
     ConnectResponse,
+    /// サーバー情報を取得 (Client -> Server)
+    GetServerInfo,
+    /// サーバー情報を返却 (Server -> Client)
+    ServerInfoResponse,
     /// データ転送 (双方向)
     /// 実際のバイナリデータ（マイクラのパケット等）を運びます。
     Data,
@@ -28,10 +34,17 @@ pub enum Command {
     Pong,
 }
 
+/// 許可されたポートの情報
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AllowedPort {
+    pub port: u16,
+    pub protocol: Protocol,
+}
+
 /// 接続初期化時に送信される詳細情報の構造体
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConnectPayload {
-    /// 使用するプロトコル (現在は TCP 固定)
+    /// 使用するプロトコル
     pub protocol: Protocol,
     /// サーバー側から最終的に接続してほしいターゲットポート
     pub port: u16,
@@ -46,6 +59,15 @@ pub struct ConnectResponsePayload {
     pub success: bool,
     /// 失敗時のエラー理由などのメッセージ
     pub message: String,
+}
+
+/// サーバーの構成情報を伝える構造体
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ServerInfoResponsePayload {
+    /// サーバー名などの識別子
+    pub server_version: String,
+    /// 許可されているポートの一覧
+    pub allowed_ports: Vec<AllowedPort>,
 }
 
 /// McConnect ネットワーク上を流れる基本の「コンテナ」構造体。
