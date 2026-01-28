@@ -4,22 +4,24 @@ use log::{info, error, warn};
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
-use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePayload, Protocol};
+use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePayload, Protocol, AllowedPort, ServerInfoResponsePayload};
 
-/// WebSocket 1接続につき1つの TCP 接続を管理するセッションアクター。
-/// クライアント(WebSocket)とターゲットサーバー(TCP)の間のブリッジを行います。
+/// WebSocket 1接続につき1つの TCP/UDP 接続を管理するセッションアクター。
+/// クライアント(WebSocket)とターゲットサーバー(レイヤー4)の間のブリッジを行います。
 pub struct WsProxySession {
     /// TCP 側へデータを送信するためのチャネル。
-    /// この Sender を通じて、WS から来たデータを TCP 書き込みタスクへ渡します。
     tcp_tx: Option<mpsc::UnboundedSender<Vec<u8>>>,
+    /// 許可されているポートのリスト
+    allowed_ports: Vec<AllowedPort>,
     /// 初期化（Connect パケットによるターゲット指定）が完了しているかどうかのフラグ。
     initialized: bool,
 }
 
 impl WsProxySession {
-    pub fn new() -> Self {
+    pub fn new(allowed_ports: Vec<AllowedPort>) -> Self {
         Self {
             tcp_tx: None,
+            allowed_ports,
             initialized: false,
         }
     }
@@ -108,6 +110,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsProxySession {
                 info!("クライアントから明示的な切断要求を受信しました。");
                 ctx.stop();
             }
+            // サーバー情報を取得
+            Command::GetServerInfo => {
+                let res = ServerInfoResponsePayload {
+                    server_version: env!("CARGO_PKG_VERSION").to_string(),
+                    allowed_ports: self.allowed_ports.clone(),
+                };
+                if let Ok(msg) = Message::from_payload(Command::ServerInfoResponse, &res) {
+                    if let Ok(bin) = msg.to_vec() {
+                        ctx.binary(bin);
+                    }
+                }
+            }
             // 生存確認
             Command::Ping => {
                 self.send_packet(ctx, Command::Pong, vec![]);
@@ -131,13 +145,22 @@ impl WsProxySession {
             }
         };
 
-        // TCP 以外は未実装
-        if payload.protocol != Protocol::TCP {
-             self.stop_with_error(ctx, "サポートされていないプロトコルです".to_string());
-             return;
+        // 許可されているポートかチェック
+        let is_allowed = self.allowed_ports.iter().any(|p| {
+            p.port == payload.port && p.protocol == payload.protocol
+        });
+
+        if !is_allowed {
+            self.stop_with_error(ctx, format!("許可されていないポートまたはプロトコルです: {}: {:?}", payload.port, payload.protocol));
+            return;
         }
 
-        info!("ターゲットサーバー 127.0.0.1:{} へ TCP 接続を開始します...", payload.port);
+        if payload.protocol == Protocol::UDP {
+            self.stop_with_error(ctx, "UDP プロトコルは現在開発中です".to_string());
+            return;
+        }
+
+        info!("ターゲットサーバー 127.0.0.1:{} へ {:?} 接続を開始します...", payload.port, payload.protocol);
         let target_addr = format!("127.0.0.1:{}", payload.port);
         let session_addr = ctx.address();
 
