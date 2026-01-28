@@ -6,82 +6,93 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessa
 use url::Url;
 use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePayload, Protocol};
 
-/// WebSocket クライアント側のトンネルサービス
+/// WebSocket クライアント側のトンネル動作を管理・提供するサービス。
+/// ローカルのポートを Listen し、接続が来るたびにプロキシサーバーへ WS トンネルを張ります。
 pub struct WsClientService;
 
 impl WsClientService {
-    /// ローカルポートで待機し、接続が来たら WebSocket トンネルを作成する
+    /// 指定されたローカルポートで待機を開始し、新しい接続をプロキシ経由で転送します。
     /// 
     /// # 引数
-    /// * `local_port` - クライアントが待機するローカルポート (例: 25565)
-    /// * `ws_url` - プロキシサーバーの URL (例: "ws://localhost:8080/ws")
-    /// * `remote_target_port` - サーバー側で最終的に接続するポート
+    /// * `local_port` - クライアント側（手元の PC 等）で Listen するポート (例: 25565)
+    /// * `ws_url` - プロキシサーバーの WebSocket エンドポイント URL
+    /// * `remote_target_port` - 最終的にサーバー側で接続してほしいポート
     pub async fn start_tunnel(local_port: u16, ws_url: String, remote_target_port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", local_port)).await?;
-        info!("クライアント側の TCP リスナーを 127.0.0.1:{} で開始しました", local_port);
+        info!("クライアント側の TCP リスナーを 127.0.0.1:{} で開始しました。マイクラ等の接続を待機しています。", local_port);
 
         loop {
+            // ローカル（マイクラ等）からの接続を受け入れ
             let (tcp_stream, addr) = listener.accept().await?;
-            info!("ローカル TCP 接続を受信: {}", addr);
+            info!("ローカル接続を検知しました: {}", addr);
 
             let ws_url_clone = ws_url.clone();
+            // 接続ごとに独立したタスク（トンネル）を生成。
+            // これにより、複数のユーザーが同時に接続しても独立して動作します。
             tokio::spawn(async move {
                 if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port).await {
-                    error!("トンネル処理エラー: {}", e);
+                    error!("トンネルセッションが異常終了しました ({}): {}", addr, e);
                 }
             });
         }
     }
 
-    /// 個別の TCP 接続を WebSocket へ橋渡しする
+    /// 個別の TCP 接続を WebSocket 経由でプロキシサーバーへ転送するメインロジック。
     async fn handle_tunnel(tcp_stream: TcpStream, ws_url: String, remote_port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = Url::parse(&ws_url)?;
         
-        // 1. プロキシサーバーへの WebSocket 接続
+        // --- 1. プロキシサーバーへの WebSocket 接続の確立 ---
         let (ws_stream, _) = connect_async(url).await?;
-        info!("プロキシサーバーへ接続しました: {}", ws_url);
+        info!("プロキシサーバー(WS)への接続に成功しました: {}", ws_url);
         
+        // 送信(write)と受信(read)に分離
         let (mut ws_write, mut ws_read) = ws_stream.split();
 
-        // 2. 初期接続パケット (Connect) の送信
+        // --- 2. プロトコル固有の初期ハンドシェイク (Connect パケット) ---
+        // サーバー側に、どのポートへ接続してほしいかを伝えます。
         let connect_content = ConnectPayload {
             protocol: Protocol::TCP,
             port: remote_port,
-            compression: None,
+            compression: None, // 圧縮プロトコルは将来用
         };
         let packet = Message::from_payload(Command::Connect, &connect_content)?;
         ws_write.send(WsMessage::Binary(packet.to_vec()?)).await?;
 
-        // 3. サーバーからの応答 (ConnectResponse) の待機
+        // --- 3. サーバーからの応答待機 ---
         if let Some(msg) = ws_read.next().await {
             let bin = msg?.into_data();
             let res_packet = Message::from_slice(&bin)?;
             if res_packet.command == Command::ConnectResponse {
                 let res: ConnectResponsePayload = res_packet.deserialize_payload()?;
                 if !res.success {
-                    return Err(format!("サーバーが接続を拒否しました: {}", res.message).into());
+                    return Err(format!("サーバーによって接続が拒否されました: {}", res.message).into());
                 }
-                info!("サーバーとのハンドシェイクが成功しました");
+                info!("サーバーとのハンドシェイクに成功。ターゲット(port:{}) への疎通を確認しました。", remote_port);
             } else {
-                return Err("不正な初期パケットを受信しました".into());
+                return Err("不正な初期パケットを受信しました (期待値: ConnectResponse)".into());
             }
         }
 
-        // 4. データ転送ループの開始
+        // --- 4. 双方向データ転送ループの開始 ---
+        // TCP ストリームを読み取り用と書き込み用に分割
         let (mut tcp_read, mut tcp_write) = tcp_stream.into_split();
 
-        // --- TCP -> WebSocket 方向 ---
+        // [タスク A] TCP(Local) -> WebSocket(Proxy) 方向
         let t2w = async move {
             let mut buf = [0u8; 8192];
             loop {
                 match tcp_read.read(&mut buf).await {
-                    Ok(0) => break, // 切断
+                    Ok(0) => {
+                        info!("ローカル側の TCP 送信が終了しました(EOF)。");
+                        break;
+                    }, 
                     Ok(n) => {
-                        // データパケットの作成。バイナリはそのままペイロードへ
+                        // データを Message パケット(Command::Data)としてカプセル化
                         let packet = Message::new(Command::Data, buf[..n].to_vec());
                         if let Ok(bin) = packet.to_vec() {
+                            // MessagePack 化したバイナリを WS で送信
                             if let Err(e) = ws_write.send(WsMessage::Binary(bin)).await {
-                                error!("WS 送信失敗: {}", e);
+                                error!("WS 送信エラー: {}", e);
                                 break;
                             }
                         }
@@ -92,30 +103,31 @@ impl WsClientService {
                     }
                 }
             }
-            // 切断通知
+            // 切断通知パケットを送ってから WS を閉じる
             if let Ok(msg) = Message::new(Command::Disconnect, vec![]).to_vec() {
                 let _ = ws_write.send(WsMessage::Binary(msg)).await;
             }
             let _ = ws_write.close().await;
-            info!("TCP -> WS 転送タスクを終了しました");
+            info!("Local -> WS 転送終了。");
         };
 
-        // --- WebSocket -> TCP 方向 ---
+        // [タスク B] WebSocket(Proxy) -> TCP(Local) 方向
         let w2t = async move {
             while let Some(msg) = ws_read.next().await {
                 match msg {
                     Ok(WsMessage::Binary(bin)) => {
                         if let Ok(packet) = Message::from_slice(&bin) {
                             match packet.command {
+                                // サーバー(ターゲット)から来た実データを、ローカル TCP へ書き出す
                                 Command::Data => {
-                                    // ペイロードをそのまま TCP 側へ書き込む
                                     if let Err(e) = tcp_write.write_all(&packet.payload).await {
                                         error!("TCP 書き込み失敗: {}", e);
                                         break;
                                     }
                                 }
+                                // サーバー側で TCP が切れた際の通知
                                 Command::Disconnect => {
-                                    info!("サーバーからの切断通知を受信しました");
+                                    info!("サーバーから切断の通知を受信しました。");
                                     break;
                                 }
                                 _ => {}
@@ -124,21 +136,22 @@ impl WsClientService {
                     }
                     Ok(WsMessage::Close(_)) => break,
                     Err(e) => {
-                        error!("WS 受信失敗: {}", e);
+                        error!("WS 受信エラー: {}", e);
                         break;
                     }
                     _ => {}
                 }
             }
-            info!("WS -> TCP 転送タスクを終了しました");
+            info!("WS -> Local 転送終了。");
         };
 
-        // いずれかの方向が終了したらトンネルを閉じる
+        // select! により、どちらかの方向が終了した時点で、もう片方も終了に導きます。
         tokio::select! {
             _ = t2w => {},
             _ = w2t => {},
         }
 
+        info!("トンネルセッションが正常にクローズされました。");
         Ok(())
     }
 }
