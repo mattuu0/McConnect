@@ -4,7 +4,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
 use url::Url;
-use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePayload, Protocol};
+use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePayload, Protocol, ServerInfoResponsePayload};
 
 /// WebSocket クライアント側のトンネル動作を管理・提供するサービス。
 /// ローカルのポートを Listen し、接続が来るたびにプロキシサーバーへ WS トンネルを張ります。
@@ -18,27 +18,50 @@ impl WsClientService {
     /// * `ws_url` - プロキシサーバーの WebSocket エンドポイント URL
     /// * `remote_target_port` - 最終的にサーバー側で接続してほしいポート
     pub async fn start_tunnel(local_port: u16, ws_url: String, remote_target_port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Self::start_tunnel_with_protocol(local_port, ws_url, remote_target_port, Protocol::TCP).await
+    }
+
+    /// 指定されたローカルポートで待機を開始し、新しい接続をプロキシ経由で転送します。
+    pub async fn start_tunnel_with_protocol(local_port: u16, ws_url: String, remote_target_port: u16, protocol: Protocol) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", local_port)).await?;
         info!("クライアント側の TCP リスナーを 127.0.0.1:{} で開始しました。マイクラ等の接続を待機しています。", local_port);
 
         loop {
-            // ローカル（マイクラ等）からの接続を受け入れ
             let (tcp_stream, addr) = listener.accept().await?;
             info!("ローカル接続を検知しました: {}", addr);
 
             let ws_url_clone = ws_url.clone();
-            // 接続ごとに独立したタスク（トンネル）を生成。
-            // これにより、複数のユーザーが同時に接続しても独立して動作します。
+            let proto_clone = protocol.clone();
             tokio::spawn(async move {
-                if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port).await {
+                if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port, proto_clone).await {
                     error!("トンネルセッションが異常終了しました ({}): {}", addr, e);
                 }
             });
         }
     }
 
+    /// サーバーから情報を取得します。
+    pub async fn get_server_info(ws_url: &str) -> Result<ServerInfoResponsePayload, Box<dyn std::error::Error + Send + Sync>> {
+        let url = Url::parse(ws_url)?;
+        let (ws_stream, _) = connect_async(url).await?;
+        let (mut ws_write, mut ws_read) = ws_stream.split();
+
+        let packet = Message::new(Command::GetServerInfo, vec![]);
+        ws_write.send(WsMessage::Binary(packet.to_vec()?)).await?;
+
+        if let Some(msg) = ws_read.next().await {
+            let bin = msg?.into_data();
+            let res_packet = Message::from_slice(&bin)?;
+            if res_packet.command == Command::ServerInfoResponse {
+                let res: ServerInfoResponsePayload = res_packet.deserialize_payload()?;
+                return Ok(res);
+            }
+        }
+        Err("サーバー情報の取得に失敗しました".into())
+    }
+
     /// 個別の TCP 接続を WebSocket 経由でプロキシサーバーへ転送するメインロジック。
-    async fn handle_tunnel(tcp_stream: TcpStream, ws_url: String, remote_port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn handle_tunnel(tcp_stream: TcpStream, ws_url: String, remote_port: u16, protocol: Protocol) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = Url::parse(&ws_url)?;
         
         // --- 1. プロキシサーバーへの WebSocket 接続の確立 ---
@@ -51,7 +74,7 @@ impl WsClientService {
         // --- 2. プロトコル固有の初期ハンドシェイク (Connect パケット) ---
         // サーバー側に、どのポートへ接続してほしいかを伝えます。
         let connect_content = ConnectPayload {
-            protocol: Protocol::TCP,
+            protocol,
             port: remote_port,
             compression: None, // 圧縮プロトコルは将来用
         };
