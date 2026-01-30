@@ -2,5 +2,6 @@
 members = [
     "mc-connect-core",
     "mc-connect-cli",
+    "mc-connect-app/src-tauri",
 ]
 resolver = "2"
