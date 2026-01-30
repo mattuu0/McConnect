@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
             let stats = Arc::new(mc_connect_core::services::ws_client_service::TunnelStats::new());
             let (_ping_tx, ping_rx) = tokio::sync::mpsc::unbounded_channel();
             
-            WsClientService::start_tunnel_with_protocol("127.0.0.1".into(), local_port, ws_url, remote_port, proto, stats, ping_rx)
+            WsClientService::start_tunnel_with_protocol("127.0.0.1".into(), local_port, ws_url, remote_port, proto, stats, ping_rx, 5)
                 .await
                 .map_err(|e| anyhow::anyhow!("Client error: {}", e))?;
         }

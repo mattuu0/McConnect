@@ -15,7 +15,7 @@ import { About } from "./pages/About";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>("dashboard");
-  const { mappings, startMapping, stopMapping, addMapping, updateMapping, deleteMappings } = useMappings();
+  const { mappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings } = useMappings();
   const { logs, logEndRef } = useLogs(currentView);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -29,7 +29,8 @@ export default function App() {
     bindAddr: "127.0.0.1",
     localPort: 25565,
     remotePort: 25565,
-    protocol: "TCP"
+    protocol: "TCP",
+    pingInterval: 5
   });
 
   const handleToggleConnect = (e: React.MouseEvent, m: Mapping) => {
@@ -68,6 +69,7 @@ export default function App() {
                 setSelectedIds={setSelectedIds}
                 setShowAddModal={setShowAddModal}
                 onToggleConnect={handleToggleConnect}
+                onTriggerPing={triggerPing}
                 onEdit={handleEdit}
                 onDeleteSelected={handleDeleteSelected}
                 onToggleSelect={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}

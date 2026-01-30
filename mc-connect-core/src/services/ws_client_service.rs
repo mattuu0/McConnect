@@ -14,6 +14,8 @@ use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePay
 pub struct TunnelStats {
     pub upload_total: AtomicU64,
     pub download_total: AtomicU64,
+    pub upload_speed: AtomicU64,
+    pub download_speed: AtomicU64,
     pub last_rtt_ms: AtomicU64,
 }
 
@@ -26,6 +28,8 @@ impl TunnelStats {
         StatsPayload {
             upload_total: self.upload_total.load(Ordering::Relaxed),
             download_total: self.download_total.load(Ordering::Relaxed),
+            upload_speed: self.upload_speed.load(Ordering::Relaxed),
+            download_speed: self.download_speed.load(Ordering::Relaxed),
             rtt_ms: Some(self.last_rtt_ms.load(Ordering::Relaxed)),
         }
     }
@@ -43,7 +47,8 @@ impl WsClientService {
         remote_target_port: u16, 
         protocol: Protocol,
         stats: Arc<TunnelStats>,
-        mut ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>
+        mut ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+        ping_interval_secs: u64,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
         info!("ゲートウェイへの疎通を確認中: {}...", ws_url);
@@ -77,7 +82,7 @@ impl WsClientService {
                             session_ping_txs.push(session_ping_tx);
 
                             join_set.spawn(async move {
-                                if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port, proto_clone, stats_clone, session_ping_rx).await {
+                                if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port, proto_clone, stats_clone, session_ping_rx, ping_interval_secs).await {
                                     error!("セッション異常終了 ({}): {}", addr, e);
                                 }
                             });
@@ -146,7 +151,8 @@ impl WsClientService {
         remote_port: u16, 
         protocol: Protocol,
         stats: Arc<TunnelStats>,
-        mut manual_ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>
+        mut manual_ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+        ping_interval_secs: u64,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = Url::parse(&ws_url)?;
         let (ws_stream, _) = connect_async(url).await?;
@@ -185,10 +191,10 @@ impl WsClientService {
         // 自動定期 Ping & 統計パケット
         let itx_ping = internal_tx.clone();
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(5));
+            let mut interval = interval(Duration::from_secs(ping_interval_secs));
             loop {
                 interval.tick().await;
-                let ping = PingPayload { timestamp: Instant::now().elapsed().as_millis() as u64 };
+                let ping = PingPayload { timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64 };
                 if let Ok(p) = Message::from_payload(Command::Ping, &ping) {
                     if itx_ping.send(p).is_err() { break; }
                 }
@@ -209,7 +215,7 @@ impl WsClientService {
                         }
                         Command::Pong => {
                             if let Ok(payload) = packet.deserialize_payload::<PingPayload>() {
-                                let rtt = (Instant::now().elapsed().as_millis() as u64).saturating_sub(payload.timestamp);
+                                let rtt = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64).saturating_sub(payload.timestamp);
                                 stats.last_rtt_ms.store(rtt, Ordering::Relaxed);
                             }
                         }
@@ -224,7 +230,7 @@ impl WsClientService {
                 }
                 // 外部からの手動 Ping 要求
                 Some(_) = manual_ping_rx.recv() => {
-                    let ping = PingPayload { timestamp: Instant::now().elapsed().as_millis() as u64 };
+                    let ping = PingPayload { timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64 };
                     if let Ok(p) = Message::from_payload(Command::Ping, &ping) {
                         ws_write.send(WsMessage::Binary(p.to_vec()?)).await?;
                     }

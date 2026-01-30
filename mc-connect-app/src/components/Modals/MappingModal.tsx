@@ -105,6 +105,18 @@ export const MappingModal = ({
                                         />
                                     </div>
                                 </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-[#5F6368] ml-1">Ping 間隔 (秒)</label>
+                                    <input
+                                        type="number"
+                                        value={mapping.pingInterval}
+                                        onChange={(e) => onChange({ ...mapping, pingInterval: Number(e.target.value) })}
+                                        className="w-full bg-[#F1F3F4] rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all font-bold"
+                                        min={1}
+                                        max={60}
+                                    />
+                                </div>
                             </div>
 
                             <div className="pt-4 flex gap-3">

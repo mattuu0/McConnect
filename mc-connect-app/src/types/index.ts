@@ -5,11 +5,23 @@ export interface Mapping {
     localPort: number;
     remotePort: number;
     protocol: string;
+    pingInterval: number;
     isRunning: boolean;
     statusMessage: string;
     error?: string;
     loading?: boolean;
     hasFailed?: boolean;
+    stats?: StatsPayload;
+    speedHistory?: { up: number[], down: number[] };
+    latencyHistory?: number[];
+}
+
+export interface StatsPayload {
+    upload_total: number;
+    download_total: number;
+    upload_speed: number;
+    download_speed: number;
+    rtt_ms?: number;
 }
 
 export interface TunnelStatusEvent {

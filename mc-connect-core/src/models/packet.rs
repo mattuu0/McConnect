@@ -43,6 +43,10 @@ pub struct StatsPayload {
     pub upload_total: u64,
     /// ダウンロードされた累計バイト数
     pub download_total: u64,
+    /// 現在のアップロード速度 (bytes/sec)
+    pub upload_speed: u64,
+    /// 現在のダウンロード速度 (bytes/sec)
+    pub download_speed: u64,
     /// 直近の RTT (ミリ秒)
     pub rtt_ms: Option<u64>,
 }
