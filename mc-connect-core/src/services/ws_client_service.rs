@@ -26,18 +26,35 @@ impl WsClientService {
         let listener = TcpListener::bind(format!("{}:{}", bind_addr, local_port)).await?;
         info!("クライアント側の TCP リスナーを {}:{} で開始しました。マイクラ等の接続を待機しています。", bind_addr, local_port);
 
-        loop {
-            let (tcp_stream, addr) = listener.accept().await?;
-            info!("ローカル接続を検知しました: {}", addr);
+        let mut join_set = tokio::task::JoinSet::new();
 
-            let ws_url_clone = ws_url.clone();
-            let proto_clone = protocol.clone();
-            tokio::spawn(async move {
-                if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port, proto_clone).await {
-                    error!("トンネルセッションが異常終了しました ({}): {}", addr, e);
+        loop {
+            tokio::select! {
+                conn = listener.accept() => {
+                    match conn {
+                        Ok((tcp_stream, addr)) => {
+                            info!("ローカル接続を検知しました: {}", addr);
+                            let ws_url_clone = ws_url.clone();
+                            let proto_clone = protocol.clone();
+                            
+                            join_set.spawn(async move {
+                                if let Err(e) = Self::handle_tunnel(tcp_stream, ws_url_clone, remote_target_port, proto_clone).await {
+                                    error!("トンネルセッションが異常終了しました ({}): {}", addr, e);
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            error!("Accept エラー: {}", e);
+                            break;
+                        }
+                    }
                 }
-            });
+                // 終了したタスクを回収する。JoinSet がドロップされると、
+                // 中で動いているすべてのタスクも自動的に abort されます（これが重要）。
+                _ = join_set.join_next(), if !join_set.is_empty() => {}
+            }
         }
+        Ok(())
     }
 
     /// ゲートウェイへの初期接続とターゲットへの疎通を確認する
