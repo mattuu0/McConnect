@@ -10,17 +10,22 @@ export const useMappings = () => {
             const parsed = JSON.parse(saved);
             return parsed.map((m: any) => ({
                 ...m,
+                name: m.name || "名称未設定",
                 isRunning: false,
                 statusMessage: "待機中",
                 loading: false,
                 error: undefined,
                 hasFailed: false,
                 stats: undefined,
-                pingInterval: m.pingInterval || 5
+                pingInterval: m.pingInterval || 5,
+                startedAt: undefined,
+                speedHistory: { up: [], down: [] },
+                latencyHistory: []
             }));
         }
         return [{
             id: "default",
+            name: "Default Tunnel",
             wsUrl: "ws://localhost:8080/ws",
             bindAddr: "127.0.0.1",
             localPort: 25565,
@@ -28,7 +33,9 @@ export const useMappings = () => {
             protocol: "TCP",
             pingInterval: 5,
             isRunning: false,
-            statusMessage: "待機中"
+            statusMessage: "待機中",
+            speedHistory: { up: [], down: [] },
+            latencyHistory: []
         }];
     });
 
@@ -49,7 +56,8 @@ export const useMappings = () => {
                         loading: false,
                         error: isError ? "接続失敗" : m.error,
                         hasFailed: isError ? true : m.hasFailed,
-                        stats: event.payload.running ? m.stats : undefined
+                        stats: event.payload.running ? m.stats : undefined,
+                        startedAt: event.payload.running ? (m.startedAt || Date.now()) : undefined,
                     }
                     : m
             ));
@@ -73,9 +81,17 @@ export const useMappings = () => {
                     const latHistory = m.latencyHistory || [];
                     const newLat = [...latHistory, event.payload.stats.rtt_ms || 0].slice(-20);
 
+                    const currentStats = m.stats;
+                    const newStats = { ...event.payload.stats };
+
+                    if (currentStats) {
+                        newStats.upload_total = Math.max(currentStats.upload_total, newStats.upload_total);
+                        newStats.download_total = Math.max(currentStats.download_total, newStats.download_total);
+                    }
+
                     return {
                         ...m,
-                        stats: event.payload.stats,
+                        stats: newStats,
                         speedHistory: { up: newUp, down: newDown },
                         latencyHistory: newLat
                     };
@@ -138,10 +154,13 @@ export const useMappings = () => {
         setMappings(prev => [...prev, {
             ...newM as Mapping,
             id,
+            name: newM.name || "新規トンネル",
             isRunning: false,
             statusMessage: "待機中",
             loading: false,
-            hasFailed: false
+            hasFailed: false,
+            speedHistory: { up: [], down: [] },
+            latencyHistory: []
         }]);
     };
 

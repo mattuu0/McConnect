@@ -14,6 +14,7 @@ export interface Mapping {
     stats?: StatsPayload;
     speedHistory?: { up: number[], down: number[] };
     latencyHistory?: number[];
+    startedAt?: number;
 }
 
 export interface StatsPayload {

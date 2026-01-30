@@ -7,8 +7,8 @@
 body {
     margin: 0;
     padding: 0;
-    background-color: #f8f9fa;
-    color: #202124;
+    background-color: #f8fafc;
+    color: #1e293b;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
 }
@@ -27,10 +27,38 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #dadce0;
+    background: #e2e8f0;
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #bdc1c6;
+    background: #cbd5e1;
+}
+
+/* Terminal specific scrollbar */
+.scrollbar-terminal::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scrollbar-terminal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-terminal::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 10px;
+}
+
+.scrollbar-terminal::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

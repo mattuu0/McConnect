@@ -24,111 +24,102 @@ export const MappingModal = ({
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="absolute inset-0 bg-[#202124]/40 backdrop-blur-sm"
-                    />
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-slate-200 relative overflow-hidden"
                     >
-                        <div className="p-6 border-b border-[#DADCE0] flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-[#3C4043]">{title}</h3>
-                            <button onClick={onClose} className="p-2 hover:bg-[#F1F3F4] rounded-full text-[#5F6368]">
-                                <X className="w-5 h-5" />
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="text-xl font-black text-slate-900 italic tracking-tight uppercase">{title}</h3>
+                            <button
+                                onClick={onClose}
+                                className="p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-900 transition-colors"
+                            >
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-[#5F6368] ml-1">WebSocket URL</label>
-                                    <input
-                                        type="text"
-                                        value={mapping.wsUrl}
-                                        onChange={(e) => onChange({ ...mapping, wsUrl: e.target.value })}
-                                        className="w-full bg-[#F1F3F4] rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all"
-                                        placeholder="ws://example.com/ws"
-                                    />
-                                </div>
+                        <div className="space-y-5">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">識別名称</label>
+                                <input
+                                    type="text"
+                                    value={mapping.name || ""}
+                                    onChange={e => onChange({ ...mapping, name: e.target.value })}
+                                    className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-bold focus:border-[#16a34a] focus:bg-white outline-none transition-all text-slate-900"
+                                    placeholder="例: サバイバルサーバー"
+                                />
+                            </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[#5F6368] ml-1">バインドアドレス</label>
-                                        <input
-                                            type="text"
-                                            value={mapping.bindAddr}
-                                            onChange={(e) => onChange({ ...mapping, bindAddr: e.target.value })}
-                                            className="w-full bg-[#F1F3F4] rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all font-mono"
-                                            placeholder="127.0.0.1"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[#5F6368] ml-1">プロトコル</label>
-                                        <div className="relative">
-                                            <select
-                                                value={mapping.protocol}
-                                                onChange={(e) => onChange({ ...mapping, protocol: e.target.value })}
-                                                className="w-full bg-[#F1F3F4] rounded-xl px-4 h-[46px] text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all appearance-none cursor-pointer"
-                                                style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%235F6368\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 1rem center', backgroundSize: '1em', backgroundRepeat: 'no-repeat' }}
-                                            >
-                                                <option value="TCP">TCP</option>
-                                                <option value="UDP">UDP</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">WebSocket URL</label>
+                                <input
+                                    type="text"
+                                    value={mapping.wsUrl || ""}
+                                    onChange={e => onChange({ ...mapping, wsUrl: e.target.value })}
+                                    className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-bold focus:border-[#16a34a] focus:bg-white outline-none transition-all font-mono text-sm"
+                                    placeholder="ws://example.com/ws"
+                                />
+                            </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[#5F6368] ml-1">ローカルポート</label>
-                                        <input
-                                            type="number"
-                                            value={mapping.localPort}
-                                            onChange={(e) => onChange({ ...mapping, localPort: Number(e.target.value) })}
-                                            className="w-full bg-[#F1F3F4] rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all font-bold"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[#5F6368] ml-1">リモートポート</label>
-                                        <input
-                                            type="number"
-                                            value={mapping.remotePort}
-                                            onChange={(e) => onChange({ ...mapping, remotePort: Number(e.target.value) })}
-                                            className="w-full bg-[#F1F3F4] rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all font-bold"
-                                        />
-                                    </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">プロトコル</label>
+                                    <select
+                                        value={mapping.protocol || "TCP"}
+                                        onChange={e => onChange({ ...mapping, protocol: e.target.value })}
+                                        className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-black outline-none cursor-pointer appearance-none"
+                                        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%2316a34a\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'3\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em', backgroundRepeat: 'no-repeat' }}
+                                    >
+                                        <option>TCP</option>
+                                        <option>UDP</option>
+                                    </select>
                                 </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-[#5F6368] ml-1">Ping 間隔 (秒)</label>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">外部ポート</label>
                                     <input
                                         type="number"
-                                        value={mapping.pingInterval}
-                                        onChange={(e) => onChange({ ...mapping, pingInterval: Number(e.target.value) })}
-                                        className="w-full bg-[#F1F3F4] rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4285F4]/20 border border-transparent focus:border-[#4285F4] transition-all font-bold"
-                                        min={1}
-                                        max={60}
+                                        value={mapping.remotePort || ""}
+                                        onChange={e => onChange({ ...mapping, remotePort: Number(e.target.value) })}
+                                        className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-black outline-none"
+                                        placeholder="25565"
                                     />
                                 </div>
                             </div>
 
-                            <div className="pt-4 flex gap-3">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">バインドアドレス</label>
+                                    <input
+                                        type="text"
+                                        value={mapping.bindAddr || ""}
+                                        onChange={e => onChange({ ...mapping, bindAddr: e.target.value })}
+                                        className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-bold outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">ローカルポート</label>
+                                    <input
+                                        type="number"
+                                        value={mapping.localPort || ""}
+                                        onChange={e => onChange({ ...mapping, localPort: Number(e.target.value) })}
+                                        className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-bold outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex flex-col sm:flex-row gap-3">
                                 <button
                                     onClick={onClose}
-                                    className="flex-1 py-3 border border-[#DADCE0] text-[#5F6368] rounded-xl font-bold text-sm hover:bg-[#F8F9FA] transition-all"
+                                    className="w-full sm:flex-1 bg-slate-100 py-4 font-black text-slate-500 rounded-2xl active:scale-95 transition-all"
                                 >
                                     キャンセル
                                 </button>
                                 <button
                                     onClick={onSave}
-                                    className="flex-2 py-3 bg-[#4285F4] text-white rounded-xl font-bold text-sm hover:bg-[#1A73E8] transition-all shadow-md shadow-blue-100"
+                                    className="w-full sm:flex-1 bg-[#16a34a] text-white py-4 rounded-2xl font-black shadow-xl shadow-green-100 hover:bg-[#15803d] active:scale-95 transition-all border-b-4 border-green-800 active:border-b-0 h-[64px]"
                                 >
                                     {submitLabel}
                                 </button>

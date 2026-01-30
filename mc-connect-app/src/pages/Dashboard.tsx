@@ -33,70 +33,70 @@ export const Dashboard = ({
     return (
         <motion.div
             key="dashboard"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="flex-1 flex flex-col space-y-4 h-full min-h-0 max-w-4xl mx-auto w-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex-1 flex flex-col w-full"
         >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2 sm:mb-4 px-1">
-                <h2 className="text-xl sm:text-2xl font-bold text-[#3C4043]">ダッシュボード</h2>
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <AnimatePresence mode="wait">
-                        {isDeleteMode ? (
-                            <motion.div
-                                key="delete-actions"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                className="flex items-center gap-2"
-                            >
-                                <button
-                                    onClick={onDeleteSelected}
-                                    disabled={selectedIds.length === 0}
-                                    className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-[#EA4335] text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-red-100 disabled:opacity-50 disabled:shadow-none transition-all hover:bg-[#D93025]"
+            <header className="sticky top-0 z-30 w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 sm:px-12 h-20 shrink-0 flex items-center shadow-sm">
+                <div className="w-full flex justify-between items-center">
+                    <h2 className="text-xl font-black text-slate-800">トンネル管理</h2>
+                    <div className="flex items-center gap-2">
+                        <AnimatePresence mode="wait">
+                            {isDeleteMode ? (
+                                <motion.div
+                                    key="delete-actions"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="flex items-center gap-2"
                                 >
-                                    <Trash2 className="w-4 h-4" />
-                                    <span className="hidden min-[450px]:inline">選択項目を削除 ({selectedIds.length})</span>
-                                    <span className="min-[450px]:hidden">削除 ({selectedIds.length})</span>
-                                </button>
-                                <button
-                                    onClick={() => { setIsDeleteMode(false); setSelectedIds([]); }}
-                                    className="p-2 sm:p-2.5 bg-white border border-[#DADCE0] rounded-xl text-[#5F6368] hover:bg-[#F1F3F4] transition-all"
+                                    <button
+                                        onClick={onDeleteSelected}
+                                        disabled={selectedIds.length === 0}
+                                        className="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-black flex items-center space-x-2 transition-all active:scale-95 shadow-lg shadow-red-100 disabled:opacity-50 disabled:shadow-none text-sm border-b-4 border-red-800 active:border-b-0 active:translate-y-1 h-[46px]"
+                                    >
+                                        <Trash2 size={18} />
+                                        <span>削除 ({selectedIds.length})</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setIsDeleteMode(false); setSelectedIds([]); }}
+                                        className="p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-500 hover:border-slate-400 transition-all outline-none h-[46px] w-[46px] flex items-center justify-center"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="normal-actions"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="flex items-center gap-2"
                                 >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="normal-actions"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                className="flex items-center gap-2"
-                            >
-                                <button
-                                    onClick={() => setIsDeleteMode(true)}
-                                    className="p-2 sm:p-2.5 bg-white border border-[#DADCE0] rounded-xl text-[#5F6368] hover:border-[#EA4335] hover:text-[#EA4335] transition-all group"
-                                    title="削除モード"
-                                >
-                                    <Trash2 className="w-5 h-5 group-hover:animate-pulse" />
-                                </button>
-                                <button
-                                    onClick={() => setShowAddModal(true)}
-                                    className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-[#4285F4] text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-blue-100 hover:bg-[#1A73E8] transition-all"
-                                >
-                                    <Plus className="w-5 h-5" />
-                                    <span className="hidden min-[450px]:inline">マッピングを追加</span>
-                                    <span className="min-[450px]:hidden">追加</span>
-                                </button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                    <button
+                                        onClick={() => setIsDeleteMode(true)}
+                                        className="p-2.5 bg-white border-2 border-slate-100 text-slate-400 hover:border-slate-300 rounded-xl transition-all outline-none shadow-sm h-[46px] w-[46px] flex items-center justify-center"
+                                        title="削除モード"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                    <button
+                                        onClick={() => setShowAddModal(true)}
+                                        className="bg-[#16a34a] hover:bg-[#15803d] text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition-all text-sm border-b-4 border-green-800 active:border-b-0 active:translate-y-1 h-[46px]"
+                                    >
+                                        <Plus size={18} strokeWidth={3} />
+                                        <span>マッピングを追加</span>
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 gap-4 overflow-y-auto pb-4 no-scrollbar">
-                <AnimatePresence>
+            <div className="max-w-5xl mx-auto w-full px-6 py-10 space-y-6 pb-32">
+                <AnimatePresence initial={false}>
                     {mappings.map((m) => (
                         <MappingCard
                             key={m.id}
@@ -110,13 +110,13 @@ export const Dashboard = ({
                         />
                     ))}
                 </AnimatePresence>
+                {mappings.length === 0 && (
+                    <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-white/50">
+                        <p className="text-slate-400 font-black text-lg">マッピングが登録されていません。</p>
+                        <p className="text-slate-300 text-sm mt-2">「マッピングを追加」ボタンから開始してください。</p>
+                    </div>
+                )}
             </div>
-
-            {mappings.length === 0 && !isDeleteMode && (
-                <div className="text-center py-20 border-2 border-dashed border-[#DADCE0] rounded-3xl bg-white/50 mx-1">
-                    <p className="text-[#9AA0A6] text-sm px-4">マッピングが登録されていません。<br className="hidden sm:block" />「追加」ボタンから接続を作成してください。</p>
-                </div>
-            )}
         </motion.div>
     );
 };

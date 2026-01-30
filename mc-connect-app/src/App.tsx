@@ -25,6 +25,7 @@ export default function App() {
   const [editingMapping, setEditingMapping] = useState<Mapping | null>(null);
 
   const [newMapping, setNewMapping] = useState<Partial<Mapping>>({
+    name: "サバイバルサーバー",
     wsUrl: "ws://localhost:8080/ws",
     bindAddr: "127.0.0.1",
     localPort: 25565,
@@ -35,33 +36,51 @@ export default function App() {
 
   const handleToggleConnect = (e: React.MouseEvent, m: Mapping) => {
     e.stopPropagation();
-    m.isRunning ? stopMapping(m.id) : startMapping(m.id);
+    if (m.isRunning) {
+      stopMapping(m.id);
+    } else {
+      startMapping(m.id);
+    }
   };
 
   const handleEdit = (m: Mapping) => {
-    if (m.isRunning) return alert("実行中のマッピングは編集できません。先に停止してください。");
+    if (m.isRunning) {
+      alert("実行中のマッピングは編集できません。先に停止してください。");
+      return;
+    }
     setEditingMapping({ ...m });
     setShowEditModal(true);
   };
 
   const handleDeleteSelected = () => {
     if (mappings.filter(m => selectedIds.includes(m.id) && m.isRunning).length > 0) {
-      return alert("実行中のマッピングは削除できません。先に停止してください。");
+      alert("実行中のマッピングは削除できません。先に停止してください。");
+      return;
     }
     deleteMappings(selectedIds);
     setSelectedIds([]);
     setIsDeleteMode(false);
   };
 
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   return (
-    <div className="flex h-screen bg-[#F8F9FA] text-[#202124] font-sans overflow-hidden">
+    <div
+      className="flex flex-col sm:flex-row h-screen bg-[#f8fafc] text-[#1e293b] font-sans overflow-hidden select-none"
+      style={{ fontFamily: '"BIZ UDPGothic", sans-serif' }}
+    >
       <Sidebar currentView={currentView} setCurrentView={setCurrentView} mappings={mappings} />
 
-      <main className="flex-1 overflow-y-auto pt-8 p-8">
-        <div className="max-w-4xl mx-auto h-full flex flex-col">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto no-scrollbar">
           <AnimatePresence mode="wait">
-            {currentView === "dashboard" && (
+            {currentView === "dashboard" &&
               <Dashboard
+                key="dashboard"
                 mappings={mappings}
                 isDeleteMode={isDeleteMode}
                 setIsDeleteMode={setIsDeleteMode}
@@ -72,33 +91,37 @@ export default function App() {
                 onTriggerPing={triggerPing}
                 onEdit={handleEdit}
                 onDeleteSelected={handleDeleteSelected}
-                onToggleSelect={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+                onToggleSelect={handleToggleSelect}
               />
-            )}
-            {currentView === "console" && <Console logs={logs} logEndRef={logEndRef} />}
-            {currentView === "about" && <About />}
+            }
+            {currentView === "console" &&
+              <Console key="console" logs={logs} logEndRef={logEndRef} />
+            }
+            {currentView === "about" &&
+              <About key="about" />
+            }
           </AnimatePresence>
         </div>
       </main>
 
       <MappingModal
         isOpen={showAddModal}
-        title="新しいマッピングを追加"
+        title="新規トンネル作成"
         mapping={newMapping}
         onClose={() => setShowAddModal(false)}
         onSave={() => { addMapping(newMapping); setShowAddModal(false); }}
         onChange={setNewMapping}
-        submitLabel="保存して追加"
+        submitLabel="設定を保存する"
       />
 
       <MappingModal
         isOpen={showEditModal}
-        title="マッピングを編集"
-        mapping={editingMapping || {}}
+        title="設定を編集"
+        mapping={editingMapping || ({} as any)}
         onClose={() => setShowEditModal(false)}
         onSave={() => { if (editingMapping) updateMapping(editingMapping); setShowEditModal(false); }}
         onChange={(m) => setEditingMapping(m as Mapping)}
-        submitLabel="変更を保存"
+        submitLabel="設定を保存する"
       />
     </div>
   );
