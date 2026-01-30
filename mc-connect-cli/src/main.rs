@@ -56,6 +56,10 @@ enum Commands {
         /// プロキシサーバーの WebSocket URL (例: ws://example.com/ws)
         #[arg(short, long)]
         ws_url: String,
+        
+        /// ローカルでバインドするアドレス
+        #[arg(short, long, default_value = "127.0.0.1")]
+        bind: String,
 
         /// サーバーが許可しているポート一覧を表示して終了します
         #[arg(long)]
@@ -75,7 +79,7 @@ async fn main() -> Result<()> {
             info!("Starting server on {}:{}", host, port);
             start_server(&host, port, parsed_ports).await.map_err(|e| anyhow::anyhow!("Server error: {}", e))?;
         }
-        Commands::Client { local_port, remote_port, protocol, ws_url, list_ports } => {
+        Commands::Client { local_port, remote_port, protocol, ws_url, bind, list_ports } => {
             let proto = match protocol.to_lowercase().as_str() {
                 "tcp" => Protocol::TCP,
                 "udp" => Protocol::UDP,
@@ -99,8 +103,8 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            info!("Starting client tunnel: local {} -> ws {} -> remote {} ({:?})", local_port, ws_url, remote_port, proto);
-            WsClientService::start_tunnel_with_protocol(local_port, ws_url, remote_port, proto)
+            info!("Starting client tunnel: local {}:{} -> ws {} -> remote {} ({:?})", bind, local_port, ws_url, remote_port, proto);
+            WsClientService::start_tunnel_with_protocol(bind, local_port, ws_url, remote_port, proto)
                 .await
                 .map_err(|e| anyhow::anyhow!("Client error: {}", e))?;
         }

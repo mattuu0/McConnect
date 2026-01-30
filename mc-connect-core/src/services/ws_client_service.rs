@@ -12,7 +12,7 @@ pub struct WsClientService;
 
 impl WsClientService {
     /// 指定されたローカルポートで待機を開始し、新しい接続をプロキシ経由で転送します。
-    pub async fn start_tunnel_with_protocol(local_port: u16, ws_url: String, remote_target_port: u16, protocol: Protocol) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn start_tunnel_with_protocol(bind_addr: String, local_port: u16, ws_url: String, remote_target_port: u16, protocol: Protocol) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // 先に WebSocket 接続と初期ハンドシェイクを確認する（疎通確認）
         info!("ゲートウェイへの疎通を確認中: {}...", ws_url);
         match Self::check_connectivity(&ws_url, remote_target_port, protocol.clone()).await {
@@ -23,8 +23,8 @@ impl WsClientService {
             }
         }
 
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", local_port)).await?;
-        info!("クライアント側の TCP リスナーを 127.0.0.1:{} で開始しました。マイクラ等の接続を待機しています。", local_port);
+        let listener = TcpListener::bind(format!("{}:{}", bind_addr, local_port)).await?;
+        info!("クライアント側の TCP リスナーを {}:{} で開始しました。マイクラ等の接続を待機しています。", bind_addr, local_port);
 
         loop {
             let (tcp_stream, addr) = listener.accept().await?;
