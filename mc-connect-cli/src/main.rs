@@ -3,6 +3,7 @@ use mc_connect_core::{start_server, WsClientService};
 use mc_connect_core::models::packet::{AllowedPort, Protocol};
 use log::{info, error};
 use anyhow::{Result, Context};
+use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 #[command(name = "mc-connect-cli")]
@@ -100,7 +101,10 @@ async fn main() -> Result<()> {
             }
 
             info!("Starting client tunnel: local {} -> ws {} -> remote {} ({:?})", local_port, ws_url, remote_port, proto);
-            WsClientService::start_tunnel_with_protocol(local_port, ws_url, remote_port, proto)
+            let stats = Arc::new(mc_connect_core::services::ws_client_service::TunnelStats::new());
+            let (_ping_tx, ping_rx) = tokio::sync::mpsc::unbounded_channel();
+            
+            WsClientService::start_tunnel_with_protocol("127.0.0.1".into(), local_port, ws_url, remote_port, proto, stats, ping_rx)
                 .await
                 .map_err(|e| anyhow::anyhow!("Client error: {}", e))?;
         }

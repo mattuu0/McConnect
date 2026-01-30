@@ -124,7 +124,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsProxySession {
             }
             // 生存確認
             Command::Ping => {
-                self.send_packet(ctx, Command::Pong, vec![]);
+                self.send_packet(ctx, Command::Pong, packet.payload);
             }
             _ => {
                 warn!("未定義のコマンドを受信しました: {:?}", packet.command);

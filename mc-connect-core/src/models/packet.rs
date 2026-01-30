@@ -32,6 +32,19 @@ pub enum Command {
     Ping,
     /// ハートビート応答
     Pong,
+    /// 統計情報レポート (双方向)
+    Stats,
+}
+
+/// 統計情報を伝える構造体
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct StatsPayload {
+    /// アップロードされた累計バイト数
+    pub upload_total: u64,
+    /// ダウンロードされた累計バイト数
+    pub download_total: u64,
+    /// 直近の RTT (ミリ秒)
+    pub rtt_ms: Option<u64>,
 }
 
 /// 許可されたポートの情報
@@ -68,6 +81,13 @@ pub struct ServerInfoResponsePayload {
     pub server_version: String,
     /// 許可されているポートの一覧
     pub allowed_ports: Vec<AllowedPort>,
+}
+
+/// Ping/Pong で使用するペイロード
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PingPayload {
+    /// 送信時のタイムスタンプ (ミリ秒)
+    pub timestamp: u64,
 }
 
 /// McConnect ネットワーク上を流れる基本の「コンテナ」構造体。
