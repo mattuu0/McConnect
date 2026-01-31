@@ -3,26 +3,32 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Mapping, TunnelStatusEvent, StatsPayload } from "../types";
 
+/**
+ * 接続設定（マッピング）の一覧管理、保存、およびバックエンドとの通信を制御するカスタムフック
+ */
 export const useMappings = () => {
+    // マッピングデータのリストを管理。初期値はlocalStorageから読み込む。
     const [mappings, setMappings] = useState<Mapping[]>(() => {
-        const saved = localStorage.getItem("mc-connect-mappings");
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            return parsed.map((m: any) => ({
-                ...m,
-                name: m.name || "名称未設定",
+        const savedData = localStorage.getItem("mc-connect-mappings");
+        if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            // 保存されたデータに実行時の一時ステータスを付与して初期化
+            return parsedData.map((mapping: any) => ({
+                ...mapping,
+                name: mapping.name || "名称未設定",
                 isRunning: false,
                 statusMessage: "待機中",
                 loading: false,
                 error: undefined,
                 hasFailed: false,
                 stats: undefined,
-                pingInterval: m.pingInterval || 5,
+                pingInterval: mapping.pingInterval || 5, // デフォルト5秒
                 startedAt: undefined,
                 speedHistory: { up: [], down: [] },
                 latencyHistory: []
             }));
         }
+        // 初期データが存在しない場合のデフォルト値
         return [{
             id: "default",
             name: "Default Tunnel",
@@ -39,80 +45,98 @@ export const useMappings = () => {
         }];
     });
 
+    /**
+     * マッピングが変更されるたびにlocalStorageに保存するエフェクト
+     */
     useEffect(() => {
         localStorage.setItem("mc-connect-mappings", JSON.stringify(mappings));
     }, [mappings]);
 
+    /**
+     * バックエンドからのステータス更新と統計データを受信するエフェクト
+     */
     useEffect(() => {
-        const unlistenStatus = listen<TunnelStatusEvent>("tunnel-status", (event) => {
-            const isError = !event.payload.running && event.payload.message.toLowerCase().includes("error");
+        // トンネルの実行状態（開始/停止/エラー）のイベントをリッスン
+        const unlistenStatusPromise = listen<TunnelStatusEvent>("tunnel-status", (event) => {
+            const isErrorMessage = !event.payload.running && event.payload.message.toLowerCase().includes("error");
 
-            setMappings(prev => prev.map(m =>
-                m.id === event.payload.id
+            setMappings(prevMappings => prevMappings.map(mapping =>
+                mapping.id === event.payload.id
                     ? {
-                        ...m,
+                        ...mapping,
                         isRunning: event.payload.running,
                         statusMessage: event.payload.message,
                         loading: false,
-                        error: isError ? "接続失敗" : m.error,
-                        hasFailed: isError ? true : m.hasFailed,
-                        stats: event.payload.running ? m.stats : undefined,
-                        startedAt: event.payload.running ? (m.startedAt || Date.now()) : undefined,
+                        error: isErrorMessage ? "接続失敗" : mapping.error,
+                        hasFailed: isErrorMessage ? true : mapping.hasFailed,
+                        stats: event.payload.running ? mapping.stats : undefined,
+                        startedAt: event.payload.running ? (mapping.startedAt || Date.now()) : undefined,
                     }
-                    : m
+                    : mapping
             ));
 
-            if (isError) {
+            // エラー表示を3秒後に消去するタイマー
+            if (isErrorMessage) {
                 setTimeout(() => {
-                    setMappings(prev => prev.map(m =>
-                        m.id === event.payload.id ? { ...m, hasFailed: false } : m
+                    setMappings(prevMappings => prevMappings.map(mapping =>
+                        mapping.id === event.payload.id ? { ...mapping, hasFailed: false } : mapping
                     ));
-                }, 3000);
+                }, 1000);
             }
         });
 
-        const unlistenStats = listen<{ id: string, stats: StatsPayload }>("tunnel-stats", (event) => {
-            setMappings(prev => prev.map(m => {
-                if (m.id === event.payload.id) {
-                    const history = m.speedHistory || { up: [], down: [] };
-                    const newUp = [...history.up, event.payload.stats.upload_speed].slice(-20);
-                    const newDown = [...history.down, event.payload.stats.download_speed].slice(-20);
+        // 通信統計データ（速度、遅延等）のイベントをリッスン
+        const unlistenStatsPromise = listen<{ id: string, stats: StatsPayload }>("tunnel-stats", (event) => {
+            setMappings(prevMappings => prevMappings.map(mapping => {
+                if (mapping.id === event.payload.id) {
+                    const history = mapping.speedHistory || { up: [], down: [] };
+                    // 過去20件の履歴を保持
+                    const newUploadHistory = [...history.up, event.payload.stats.upload_speed].slice(-20);
+                    const newDownloadHistory = [...history.down, event.payload.stats.download_speed].slice(-20);
 
-                    const latHistory = m.latencyHistory || [];
-                    const newLat = [...latHistory, event.payload.stats.rtt_ms || 0].slice(-20);
+                    const latencyHistory = mapping.latencyHistory || [];
+                    const newLatencyHistory = [...latencyHistory, event.payload.stats.rtt_ms || 0].slice(-20);
 
-                    const currentStats = m.stats;
+                    const currentStats = mapping.stats;
                     const newStats = { ...event.payload.stats };
 
+                    // 合計通信量は累積させる（バックエンドからの値がリセットされる場合があるため）
                     if (currentStats) {
                         newStats.upload_total = Math.max(currentStats.upload_total, newStats.upload_total);
                         newStats.download_total = Math.max(currentStats.download_total, newStats.download_total);
                     }
 
                     return {
-                        ...m,
+                        ...mapping,
                         stats: newStats,
-                        speedHistory: { up: newUp, down: newDown },
-                        latencyHistory: newLat
+                        speedHistory: { up: newUploadHistory, down: newDownloadHistory },
+                        latencyHistory: newLatencyHistory
                     };
                 }
-                return m;
+                return mapping;
             }));
         });
 
+        // クリーンアップ：イベントリスナーの解除
         return () => {
-            unlistenStatus.then(f => f());
-            unlistenStats.then(f => f());
+            unlistenStatusPromise.then(unlistenFn => unlistenFn());
+            unlistenStatsPromise.then(unlistenFn => unlistenFn());
         };
     }, []);
 
+    /**
+     * トンネル接続を開始する
+     * @param id 開始するマッピングのID
+     */
     const startMapping = async (id: string) => {
         const mapping = mappings.find(m => m.id === id);
         if (!mapping) return;
 
-        setMappings(prev => prev.map(m => m.id === id ? { ...m, loading: true, error: undefined } : m));
+        // ローディング状態に設定
+        setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, loading: true, error: undefined } : m));
 
         try {
+            // Rust側のコマンドを呼び出し
             await invoke("start_mapping", {
                 info: {
                     id: mapping.id,
@@ -124,37 +148,50 @@ export const useMappings = () => {
                     ping_interval: mapping.pingInterval
                 }
             });
-        } catch (e) {
-            setMappings(prev => prev.map(m => m.id === id ? { ...m, loading: false, error: `起動失敗`, hasFailed: true } : m));
+        } catch (error) {
+            // 起動に失敗した場合の処理
+            setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, loading: false, error: `起動失敗`, hasFailed: true } : m));
             setTimeout(() => {
-                setMappings(prev => prev.map(m => m.id === id ? { ...m, hasFailed: false } : m));
+                setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, hasFailed: false } : m));
             }, 3000);
         }
     };
 
+    /**
+     * トンネル接続を停止する
+     * @param id 停止するマッピングのID
+     */
     const stopMapping = async (id: string) => {
-        setMappings(prev => prev.map(m => m.id === id ? { ...m, loading: true } : m));
+        setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, loading: true } : m));
         try {
             await invoke("stop_mapping", { id });
-        } catch (e) {
-            setMappings(prev => prev.map(m => m.id === id ? { ...m, loading: false, error: `停止失敗` } : m));
+        } catch (error) {
+            setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, loading: false, error: `停止失敗` } : m));
         }
     };
 
+    /**
+     * PING計測を手動で実行する
+     * @param id 対象のマッピングID
+     */
     const triggerPing = async (id: string) => {
         try {
             await invoke("trigger_ping", { id });
-        } catch (e) {
-            console.error("Ping trigger failed", e);
+        } catch (error) {
+            console.error("Ping trigger failed", error);
         }
     };
 
-    const addMapping = (newM: Partial<Mapping>) => {
-        const id = Math.random().toString(36).substr(2, 9);
-        setMappings(prev => [...prev, {
-            ...newM as Mapping,
-            id,
-            name: newM.name || "新規トンネル",
+    /**
+     * 新しいマッピングを追加する
+     * @param partialMapping 追加するマッピングデータ（一部）
+     */
+    const addMapping = (partialMapping: Partial<Mapping>) => {
+        const newId = Math.random().toString(36).substr(2, 9);
+        setMappings(prevMappings => [...prevMappings, {
+            ...partialMapping as Mapping,
+            id: newId,
+            name: partialMapping.name || "新規トンネル",
             isRunning: false,
             statusMessage: "待機中",
             loading: false,
@@ -164,12 +201,20 @@ export const useMappings = () => {
         }]);
     };
 
-    const updateMapping = (updatedM: Mapping) => {
-        setMappings(prev => prev.map(m => m.id === updatedM.id ? updatedM : m));
+    /**
+     * 既存のマッピング情報を更新する
+     * @param updatedMapping 更新後のマッピングデータ
+     */
+    const updateMapping = (updatedMapping: Mapping) => {
+        setMappings(prevMappings => prevMappings.map(mapping => mapping.id === updatedMapping.id ? updatedMapping : mapping));
     };
 
+    /**
+     * 指定されたIDのマッピングを削除する
+     * @param ids 削除対象のIDリスト
+     */
     const deleteMappings = (ids: string[]) => {
-        setMappings(prev => prev.filter(m => !ids.includes(m.id)));
+        setMappings(prevMappings => prevMappings.filter(mapping => !ids.includes(mapping.id)));
     };
 
     return {
@@ -182,3 +227,4 @@ export const useMappings = () => {
         deleteMappings
     };
 };
+

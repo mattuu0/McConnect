@@ -5,31 +5,51 @@ import { twMerge } from "tailwind-merge";
 import { clsx, type ClassValue } from "clsx";
 import { motion } from "framer-motion";
 
+/**
+ * Tailwindのクラス名を条件に応じて結合し、マージするためのユーティリティ関数
+ * @param inputs クラス名のリスト（文字列、オブジェクト、配列など）
+ */
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+/**
+ * サイドバーコンポーネントのプロパティ定義
+ */
 interface SidebarProps {
+    /** 現在表示中の表示モード */
     currentView: View;
+    /** 表示モードを切り替えるための関数 */
     setCurrentView: (view: View) => void;
+    /** マッピングデータのリスト（将来的な利用のため） */
     mappings: Mapping[];
 }
 
+/**
+ * アプリケーションのナビゲーション（デスクトップ：サイドバー、モバイル：ボトムバー）を管理するコンポーネント
+ */
 export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps) => {
+    // デスクトップ版のサイドバーが開いているかどうか（折りたたみ状態）の管理
     const [isSidebarOpen, setSidebarOpen] = useState(true);
 
-    const SidebarItem = ({ id, icon: Icon, label }: { id: View, icon: any, label: string }) => (
+    /**
+     * サイドバー内の各ナビゲーション項目を表示するインナーコンポーネント
+     */
+    const SidebarItem = ({ viewId, icon: Icon, label }: { viewId: View, icon: any, label: string }) => (
         <button
-            onClick={() => setCurrentView(id)}
+            onClick={() => setCurrentView(viewId)}
             className={cn(
                 "w-full flex items-center space-x-3 px-6 py-4 border-r-4 transition-all outline-none group relative",
-                currentView === id
+                currentView === viewId
                     ? "text-[#16a34a] bg-green-50 border-[#16a34a]"
                     : "text-slate-400 border-transparent hover:bg-slate-50",
                 !isSidebarOpen && "px-2 justify-center"
             )}
         >
+            {/* アイコンの表示 */}
             <Icon size={20} className="shrink-0" />
+
+            {/* ラベルの表示：サイドバーが閉じている時はアニメーションで隠す */}
             <span
                 className={cn(
                     "font-bold transition-all duration-300 origin-left whitespace-nowrap overflow-hidden",
@@ -39,6 +59,7 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                 {label}
             </span>
 
+            {/* サイドバーが閉じている時のみ、ホバー時にツールチップを表示 */}
             {!isSidebarOpen && (
                 <div className="absolute left-full ml-4 px-3 py-2 bg-[#1e293b] text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible pointer-events-none transition-all duration-200 -translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl hidden sm:block">
                     {label}
@@ -49,12 +70,13 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
 
     return (
         <>
-            {/* Desktop Sidebar */}
+            {/* デスクトップ用サイドバー（画面幅がlg以上の場合に表示） */}
             <motion.aside
                 animate={{ width: isSidebarOpen ? 256 : 80 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="hidden lg:flex flex-col bg-white border-r border-slate-200 h-screen transition-all duration-300 shadow-sm z-40 relative"
             >
+                {/* サイドバーヘッダー：ロゴと開閉ボタン */}
                 <div className="p-4 h-16 flex items-center justify-between border-b border-slate-100 px-6 overflow-hidden">
                     {isSidebarOpen && (
                         <motion.h1
@@ -73,12 +95,14 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                     </button>
                 </div>
 
+                {/* ナビゲーションメニュー */}
                 <nav className="flex-1 py-6 space-y-0.5">
-                    <SidebarItem id="dashboard" icon={Shield} label="トンネル管理" />
-                    <SidebarItem id="console" icon={Terminal} label="システムログ" />
-                    <SidebarItem id="about" icon={Info} label="アプリケーション情報" />
+                    <SidebarItem viewId="dashboard" icon={Shield} label="トンネル管理" />
+                    <SidebarItem viewId="console" icon={Terminal} label="システムログ" />
+                    <SidebarItem viewId="about" icon={Info} label="アプリケーション情報" />
                 </nav>
 
+                {/* サイドバーフッター：稼働状態の表示 */}
                 <div className="p-4 border-t border-slate-100 overflow-hidden">
                     <div className={cn("flex items-center space-x-2 px-2 text-[11px] font-bold text-[#16a34a]", !isSidebarOpen && "justify-center px-0")}>
                         <div className="w-2.5 h-2.5 bg-[#16a34a] rounded-full animate-pulse shrink-0" />
@@ -87,7 +111,7 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                 </div>
             </motion.aside>
 
-            {/* Mobile Bottom Navigation */}
+            {/* モバイル用ボトムナビゲーション（画面幅がlg未満の場合に表示） */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2 py-1 flex items-center justify-around z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] h-16">
                 <button
                     onClick={() => setCurrentView("dashboard")}
@@ -123,3 +147,4 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
         </>
     );
 };
+
