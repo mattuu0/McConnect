@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+    --breakpoint-sidebar: 800px;
+}
+
 :root {
     color-scheme: light;
 }

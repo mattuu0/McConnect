@@ -97,14 +97,7 @@ export const useMappings = () => {
                     const latencyHistory = mapping.latencyHistory || [];
                     const newLatencyHistory = [...latencyHistory, event.payload.stats.rtt_ms || 0].slice(-20);
 
-                    const currentStats = mapping.stats;
                     const newStats = { ...event.payload.stats };
-
-                    // 合計通信量は累積させる（バックエンドからの値がリセットされる場合があるため）
-                    if (currentStats) {
-                        newStats.upload_total = Math.max(currentStats.upload_total, newStats.upload_total);
-                        newStats.download_total = Math.max(currentStats.download_total, newStats.download_total);
-                    }
 
                     return {
                         ...mapping,

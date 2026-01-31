@@ -99,7 +99,7 @@ export default function App() {
 
   return (
     <div
-      className="flex flex-col sm:flex-row h-screen bg-[#f8fafc] text-[#1e293b] font-sans overflow-hidden select-none"
+      className="flex flex-col sidebar:flex-row h-screen bg-[#f8fafc] text-[#1e293b] font-sans overflow-hidden select-none"
       style={{ fontFamily: '"BIZ UDPGothic", sans-serif' }}
     >
       {/* 共通サイドバー */}

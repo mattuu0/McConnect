@@ -25,7 +25,7 @@ export const About = () => {
 
             {/* メインコンテンツセクション */}
             <div className="max-w-5xl mx-auto w-full px-6 py-10 flex-1 flex flex-col pb-32">
-                <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-200 p-8 lg:p-16 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-center flex flex-col items-center justify-center space-y-10">
+                <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-200 p-8 sidebar:p-16 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-center flex flex-col items-center justify-center space-y-10">
 
                     {/* アプリケーションアイコン（Serverアイコンを使用） */}
                     <div className="w-28 h-28 bg-[#16a34a] rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-green-100 border-b-8 border-green-800 relative group shrink-0">
@@ -34,7 +34,7 @@ export const About = () => {
 
                     {/* アプリ名と説明文 */}
                     <div className="space-y-4">
-                        <h2 className="text-4xl lg:text-5xl font-black tracking-tighter text-slate-900 italic uppercase leading-tight">
+                        <h2 className="text-4xl sidebar:text-5xl font-black tracking-tighter text-slate-900 italic uppercase leading-tight">
                             MC CONNECT <span className="text-[#16a34a]">v0.1.0</span>
                         </h2>
                         <p className="text-slate-500 max-w-lg mx-auto leading-relaxed font-bold text-lg">

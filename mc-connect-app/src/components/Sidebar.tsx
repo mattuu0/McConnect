@@ -39,21 +39,21 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
         <button
             onClick={() => setCurrentView(viewId)}
             className={cn(
-                "w-full flex items-center space-x-3 px-6 py-4 border-r-4 transition-all outline-none group relative",
+                "w-full flex items-center space-x-3 px-6 py-4 border-r-4 transition-all outline-none group relative overflow-hidden",
                 currentView === viewId
                     ? "text-[#16a34a] bg-green-50 border-[#16a34a]"
                     : "text-slate-400 border-transparent hover:bg-slate-50",
-                !isSidebarOpen && "px-2 justify-center"
+                !isSidebarOpen && "px-0 justify-center space-x-0"
             )}
         >
             {/* アイコンの表示 */}
             <Icon size={20} className="shrink-0" />
 
-            {/* ラベルの表示：サイドバーが閉じている時はアニメーションで隠す */}
+            {/* ラベルの表示：サイドバーが閉じている時は幅と透明度を制御 */}
             <span
                 className={cn(
-                    "font-bold transition-all duration-300 origin-left whitespace-nowrap overflow-hidden",
-                    !isSidebarOpen ? "w-0 opacity-0" : "w-auto opacity-100"
+                    "font-bold transition-all duration-300 origin-left whitespace-nowrap",
+                    !isSidebarOpen ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
                 )}
             >
                 {label}
@@ -61,7 +61,7 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
 
             {/* サイドバーが閉じている時のみ、ホバー時にツールチップを表示 */}
             {!isSidebarOpen && (
-                <div className="absolute left-full ml-4 px-3 py-2 bg-[#1e293b] text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible pointer-events-none transition-all duration-200 -translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl hidden sm:block">
+                <div className="absolute left-full ml-4 px-3 py-2 bg-[#1e293b] text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible pointer-events-none transition-all duration-200 -translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl hidden sidebar:block">
                     {label}
                 </div>
             )}
@@ -70,11 +70,12 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
 
     return (
         <>
-            {/* デスクトップ用サイドバー（画面幅がlg以上の場合に表示） */}
+            {/* デスクトップ用サイドバー（画面幅がsidebar以上の場合に表示） */}
             <motion.aside
+                initial={false}
                 animate={{ width: isSidebarOpen ? 256 : 80 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="hidden lg:flex flex-col bg-white border-r border-slate-200 h-screen transition-all duration-300 shadow-sm z-40 relative"
+                transition={{ type: "spring", stiffness: 200, damping: 25, mass: 0.5 }}
+                className="hidden sidebar:flex flex-col bg-white border-r border-slate-200 h-screen shadow-sm z-40 relative"
             >
                 {/* サイドバーヘッダー：ロゴと開閉ボタン */}
                 <div className="p-4 h-16 flex items-center justify-between border-b border-slate-100 px-6 overflow-hidden">
@@ -111,8 +112,8 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                 </div>
             </motion.aside>
 
-            {/* モバイル用ボトムナビゲーション（画面幅がlg未満の場合に表示） */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2 py-1 flex items-center justify-around z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] h-16">
+            {/* モバイル用ボトムナビゲーション（画面幅がsidebar未満の場合に表示） */}
+            <nav className="sidebar:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2 py-1 flex items-center justify-around z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] h-16">
                 <button
                     onClick={() => setCurrentView("dashboard")}
                     className={cn(

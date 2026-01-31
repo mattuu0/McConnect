@@ -70,13 +70,16 @@ export const MappingCard = ({
     }, [mapping.isRunning, mapping.startedAt]);
 
     /**
-     * バイト数を読みやすい形式（MB）にフォーマットする関数
+     * バイト数を読みやすい形式にフォーマットする関数
      * @param bytes フォーマット対象のバイト数
      */
     const formatBytes = (bytes: number) => {
-        if (!bytes || bytes === 0) return "0.0 MB";
-        const megabytes = bytes / (1024 * 1024);
-        return megabytes.toFixed(1) + " MB";
+        if (!bytes || bytes === 0) return "0.00 MB";
+        const mb = bytes / (1024 * 1024);
+        if (mb < 0.1) {
+            return (bytes / 1024).toFixed(2) + " KB";
+        }
+        return mb.toFixed(2) + " MB";
     };
 
     return (

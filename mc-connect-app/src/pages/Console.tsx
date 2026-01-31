@@ -46,7 +46,7 @@ export const Console = ({ logs, logEndRef }: ConsoleProps) => {
                     </div>
 
                     {/* ログ本文エリア */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 font-mono text-[12px] lg:text-[14px] leading-relaxed scrollbar-terminal">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 font-mono text-[12px] sidebar:text-[14px] leading-relaxed scrollbar-terminal">
                         {logs.length === 0 ? (
                             // ログがない場合の表示
                             <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 opacity-50">
