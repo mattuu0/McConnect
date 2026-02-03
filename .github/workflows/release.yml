@@ -1,0 +1,101 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release - ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            target: x86_64-unknown-linux-gnu
+            cli_ext: ""
+          - os: macos-latest
+            platform: macos
+            target: aarch64-apple-darwin
+            cli_ext: ""
+          - os: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+            cli_ext: ".exe"
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      # --- CLI Build ---
+      - name: Build CLI
+        run: cargo build --release -p mc-connect-cli --target ${{ matrix.target }}
+      
+      - name: Prepare CLI Artifact
+        shell: bash
+        run: |
+          mkdir -p release-artifacts
+          # Handle path variation if needed, but standard cargo output is predicted
+          cp target/${{ matrix.target }}/release/mc-connect-cli${{ matrix.cli_ext }} release-artifacts/mc-connect-cli-${{ matrix.platform }}${{ matrix.cli_ext }}
+
+      # --- App Build (Tauri) ---
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Frontend Dependencies
+        working-directory: ./mc-connect-app
+        run: npm install
+
+      - name: Build Tauri App
+        working-directory: ./mc-connect-app
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Collect Tauri Artifacts
+        shell: bash
+        run: |
+          # Copy Tauri bundles to release-artifacts
+          # Paths depend on OS.
+          # Linux: target/.../bundle/appimage/*.AppImage, deb/*.deb
+          # macOS: target/.../bundle/dmg/*.dmg
+          # Windows: target/.../bundle/nsis/*.exe (or msi)
+          
+          # We use a wildcard copy to catch generated bundles
+          # Note: target dir is likely at root due to workspace
+          
+          BASE_TARGET="target/${{ matrix.target }}/release/bundle"
+          
+          if [ "${{ matrix.platform }}" == "linux" ]; then
+            cp ${BASE_TARGET}/appimage/*.AppImage release-artifacts/ 2>/dev/null || true
+            cp ${BASE_TARGET}/deb/*.deb release-artifacts/ 2>/dev/null || true
+          elif [ "${{ matrix.platform }}" == "macos" ]; then
+            cp ${BASE_TARGET}/dmg/*.dmg release-artifacts/ 2>/dev/null || true
+          elif [ "${{ matrix.platform }}" == "windows" ]; then
+            cp ${BASE_TARGET}/nsis/*.exe release-artifacts/ 2>/dev/null || true
+            cp ${BASE_TARGET}/msi/*.msi release-artifacts/ 2>/dev/null || true
+          fi
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release-artifacts/*
