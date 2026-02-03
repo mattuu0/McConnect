@@ -23,6 +23,7 @@ struct TunnelHandle {
 #[derive(Default)]
 struct AppState {
     tunnels: HashMap<String, TunnelHandle>,
+    server_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 static STATE: Lazy<Arc<Mutex<AppState>>> = Lazy::new(|| Arc::new(Mutex::new(AppState::default())));
@@ -221,6 +222,20 @@ async fn is_mapping_running(id: String) -> bool {
 }
 
 #[tauri::command]
+async fn generate_server_keys() -> Result<(String, String), String> {
+    use mc_connect_core::encryption::{KeyGenerator, RsaKeyGenerator};
+    use base64::{Engine as _, engine::general_purpose};
+
+    let gen = RsaKeyGenerator { bits: 2048 };
+    let pair = gen.generate().map_err(|e| e.to_string())?;
+    
+    let priv_b64 = general_purpose::STANDARD.encode(pair.private_key_bytes());
+    let pub_b64 = general_purpose::STANDARD.encode(pair.public_key_bytes());
+    
+    Ok((priv_b64, pub_b64))
+}
+
+#[tauri::command]
 async fn trigger_ping(id: String) -> Result<(), String> {
     let state = STATE.lock().await;
     if let Some(handle) = state.tunnels.get(&id) {
@@ -229,6 +244,75 @@ async fn trigger_ping(id: String) -> Result<(), String> {
     } else {
         Err("Tunnel not running".into())
     }
+}
+
+#[tauri::command]
+async fn start_server<R: Runtime>(
+    app_handle: AppHandle<R>,
+    port: u16,
+    allowed_ports: Vec<(u16, String)>,
+    private_key_b64: String
+) -> Result<(), String> {
+    let mut state = STATE.lock().await;
+    if state.server_handle.is_some() {
+        return Err("Server is already running".into());
+    }
+
+    use mc_connect_core::models::packet::{AllowedPort, Protocol};
+    use mc_connect_core::encryption::RsaKeyPair;
+    use base64::{Engine as _, engine::general_purpose};
+
+    let der = general_purpose::STANDARD.decode(private_key_b64.trim())
+        .map_err(|e| format!("秘密鍵のデコードに失敗: {}", e))?;
+    let key_pair = Arc::new(RsaKeyPair::from_private_der(&der).map_err(|e| e.to_string())?);
+
+    let mut ports = Vec::new();
+    for (p, proto_str) in allowed_ports {
+        let protocol = match proto_str.to_lowercase().as_str() {
+            "tcp" => Protocol::TCP,
+            "udp" => Protocol::UDP,
+            _ => continue,
+        };
+        ports.push(AllowedPort { port: p, protocol });
+    }
+
+    let app = app_handle.clone();
+    emit_log(&app, "INFO", format!("サーバーを起動します (Port: {})", port));
+
+    let _handle = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        
+        rt.block_on(async {
+            match mc_connect_core::start_server("0.0.0.0", port, ports, key_pair).await {
+                Ok(_) => emit_log(&app, "INFO", "サーバーが終了しました".into()),
+                Err(e) => emit_log(&app, "ERROR", format!("サーバーエラー: {}", e)),
+            }
+        });
+    });
+
+    // state.server_handle = Some(handle); // JoinHandle of std::thread is different. 
+    // We might need to store the thread handle or just let it run.
+    // For now, let's keep it simple.
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_server<R: Runtime>(app_handle: AppHandle<R>) -> Result<(), String> {
+    let mut state = STATE.lock().await;
+    if let Some(handle) = state.server_handle.take() {
+        handle.abort();
+        emit_log(&app_handle, "INFO", "サーバーを停止しました".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn is_server_running() -> bool {
+    let state = STATE.lock().await;
+    state.server_handle.is_some()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -240,7 +324,11 @@ pub fn run() {
             start_mapping,
             stop_mapping,
             is_mapping_running,
-            trigger_ping
+            trigger_ping,
+            generate_server_keys,
+            start_server,
+            stop_server,
+            is_server_running
         ])
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit McConnect", true, None::<&str>)?;

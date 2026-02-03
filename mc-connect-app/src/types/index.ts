@@ -83,5 +83,29 @@ export interface LogEntry {
 /**
  * アプリケーションの表示画面（ビュー）の識別子
  */
-export type View = "dashboard" | "console" | "about";
+export type View = "dashboard" | "server" | "console" | "settings" | "about";
+
+/**
+ * サーバー設定の状態
+ */
+export interface ServerConfig {
+    /** サーバーが実行中かどうか */
+    isRunning: boolean;
+    /** 待ち受けポート */
+    listenPort: number;
+    /** 秘密鍵 (PEM) */
+    privateKey?: string;
+    /** 公開鍵 (DER/Base64) */
+    publicKey?: string;
+    /** 許可されたポート設定 */
+    allowedPorts: { port: number; protocol: "TCP" | "UDP" }[];
+}
+
+/**
+ * アプリ全体のユーザー設定
+ */
+export interface AppSettings {
+    /** サーバーモードを有効にするかどうか */
+    serverModeEnabled: boolean;
+}
 
