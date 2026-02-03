@@ -22,7 +22,9 @@ pub fn run() {
             commands::generate_server_keys,
             commands::start_server,
             commands::stop_server,
-            commands::is_server_running
+            commands::is_server_running,
+            commands::save_config,
+            commands::load_config
         ])
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit McConnect", true, None::<&str>)?;
