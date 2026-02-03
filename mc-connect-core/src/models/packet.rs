@@ -34,6 +34,9 @@ pub enum Command {
     Pong,
     /// 統計情報レポート (双方向)
     Stats,
+    /// セキュア接続初期化要求 (Client -> Server)
+    /// 公開鍵で暗号化された共通鍵を含みます。
+    SecureConnect,
 }
 
 /// 統計情報を伝える構造体
@@ -63,6 +66,19 @@ pub struct ConnectPayload {
     pub port: u16,
     /// 将来的な拡張用の圧縮設定 (例: "zlib", "none")
     pub compression: Option<String>,
+}
+
+/// セキュア接続要求に使用するペイロード
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SecureConnectPayload {
+    /// 使用するプロトコル
+    pub protocol: Protocol,
+    /// ターゲットポート
+    pub port: u16,
+    /// サーバーの公開鍵で暗号化された対称鍵（共通鍵）
+    pub encrypted_key: Vec<u8>,
+    /// 使用する共通鍵暗号アルゴリズム（例: "AES-256-GCM"）
+    pub algorithm: String,
 }
 
 /// 接続初期化の成否を伝える構造体
