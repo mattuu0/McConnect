@@ -116,6 +116,33 @@ pub struct ServerExportConfig {
     pub allowed_ports: Option<String>,
 }
 
+/// クライアント配布用の新しい設定ファイル形式
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClientExportConfig {
+    pub name: String,
+    pub ws_url: String,
+    pub mappings: Vec<AllowedPort>,
+    pub public_key: String,
+    pub encryption_type: String,
+}
+
+/// サーバー側の設定保存用構造体 (秘密鍵を含む)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ServerConfig {
+    /// バインドホスト (0.0.0.0等)
+    pub bind_host: String,
+    /// 公開用ホスト (クライアントが接続する先)
+    pub public_host: String,
+    /// 待受ポート
+    pub port: u16,
+    /// サーバーの公開鍵（Base64）
+    pub public_key: String,
+    /// サーバーの秘密鍵（Base64）
+    pub private_key: String,
+    /// 許可ポート設定
+    pub allowed_ports: String,
+}
+
 /// Ping/Pong で使用するペイロード
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PingPayload {
