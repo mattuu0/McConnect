@@ -8,7 +8,7 @@ pub mod models;
 
 // 主要な機能を外部に再公開
 pub use controllers::start_server;
-pub use services::ws_client_service::WsClientService;
+pub use services::ws_client::WsClientService;
 
 // ネットワーク処理の低レイヤーモジュール
 pub mod tcp;

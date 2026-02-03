@@ -1,6 +1,6 @@
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use crate::services::proxy_service::WsProxySession;
+use crate::services::proxy::WsProxySession;
 use log::info;
 
 use crate::models::packet::AllowedPort;
