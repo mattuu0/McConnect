@@ -97,6 +97,8 @@ export interface ServerConfig {
     privateKey?: string;
     /** 公開鍵 (DER/Base64) */
     publicKey?: string;
+    /** 暗号化方式 */
+    encryptionType: "RSA" | "ED25519";
     /** 許可されたポート設定 */
     allowedPorts: { port: number; protocol: "TCP" | "UDP" }[];
 }

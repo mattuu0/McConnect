@@ -1,22 +1,24 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Server, Play, Square, Key, Share2, Plus, Trash2, ShieldCheck, Globe } from "lucide-react";
+import { Server, Play, Square, Key, Share2, Plus, Trash2, ShieldCheck, Globe, Settings as SettingsIcon, RefreshCw, Zap } from "lucide-react";
 import { ServerConfig } from "../types";
+import { PortModal } from "../components/Modals/PortModal";
 
 interface ServerPageProps {
     config: ServerConfig;
+    isGeneratingKeys: boolean;
     onConfigChange: (config: ServerConfig) => void;
     onStart: () => void;
     onStop: () => void;
     onGenerateKeys: () => void;
 }
 
-export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerateKeys }: ServerPageProps) => {
-    const handleAddPort = () => {
-        const port = window.prompt("追加するポート番号を入力してください (例: 25565)");
-        if (port && !isNaN(Number(port))) {
-            const newPorts = [...config.allowedPorts, { port: Number(port), protocol: "TCP" as const }];
-            onConfigChange({ ...config, allowedPorts: newPorts });
-        }
+export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, onStop, onGenerateKeys }: ServerPageProps) => {
+    const [isPortModalOpen, setIsPortModalOpen] = useState(false);
+
+    const handleAddPort = (port: number, protocol: "TCP" | "UDP") => {
+        const newPorts = [...config.allowedPorts, { port, protocol }];
+        onConfigChange({ ...config, allowedPorts: newPorts });
     };
 
     const handleRemovePort = (index: number) => {
@@ -33,7 +35,8 @@ export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerate
             name: "Server Connection",
             ws_url: `ws://YOUR_IP:${config.listenPort}/ws`,
             mappings: config.allowedPorts,
-            public_key: config.publicKey
+            public_key: config.publicKey,
+            encryption_type: config.encryptionType
         };
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -97,19 +100,35 @@ export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerate
                     {/* 基本設定 */}
                     <section className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm space-y-6">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <Settings size={12} /> 基本構成
+                            <SettingsIcon size={12} /> 基本構成
                         </h4>
 
-                        <div>
-                            <label className="text-xs font-black text-slate-500 block mb-2 px-1">待ち受けポート (WebSocket)</label>
-                            <input
-                                type="number"
-                                value={config.listenPort}
-                                onChange={e => onConfigChange({ ...config, listenPort: Number(e.target.value) })}
-                                disabled={config.isRunning}
-                                className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-bold focus:border-[#16a34a] outline-none disabled:opacity-50"
-                                placeholder="8080"
-                            />
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-black text-slate-500 block mb-2 px-1">待ち受けポート (WebSocket)</label>
+                                <input
+                                    type="number"
+                                    value={config.listenPort}
+                                    onChange={e => onConfigChange({ ...config, listenPort: Number(e.target.value) })}
+                                    disabled={config.isRunning}
+                                    className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-bold focus:border-[#16a34a] outline-none disabled:opacity-50"
+                                    placeholder="8080"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-black text-slate-500 block mb-2 px-1">暗号化プロトコル</label>
+                                <select
+                                    value={config.encryptionType}
+                                    onChange={e => onConfigChange({ ...config, encryptionType: e.target.value as any })}
+                                    disabled={config.isRunning}
+                                    className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-black outline-none focus:border-[#16a34a] disabled:opacity-50 cursor-pointer appearance-none"
+                                    style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%2316a34a\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'3\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em', backgroundRepeat: 'no-repeat' }}
+                                >
+                                    <option value="RSA">RSA (標準的・高可用性)</option>
+                                    <option value="ED25519">ED25519 (高速・モダン)</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div>
@@ -131,7 +150,7 @@ export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerate
                                     </div>
                                 ))}
                                 <button
-                                    onClick={handleAddPort}
+                                    onClick={() => setIsPortModalOpen(true)}
                                     disabled={config.isRunning}
                                     className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:border-slate-300 hover:text-slate-500 transition-all flex items-center justify-center gap-2 text-sm font-bold disabled:hidden"
                                 >
@@ -151,19 +170,22 @@ export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerate
                             <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
                                 <Key className="text-amber-500 shrink-0" size={20} />
                                 <div>
-                                    <p className="text-xs text-amber-900 font-bold mb-1">暗号化キー</p>
+                                    <p className="text-xs text-amber-900 font-bold mb-1">暗号化キー ({config.encryptionType})</p>
                                     <p className="text-[10px] text-amber-700 font-bold leading-tight">
-                                        クライアントとの安全な通信のためにRSAキーペアが必要です。
+                                        クライアントとの安全な通信のために鍵が必要です。
                                         最初に一度だけ生成してください。
                                     </p>
                                 </div>
                             </div>
 
                             {config.publicKey ? (
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group relative">
                                     <p className="text-[9px] font-black text-slate-400 uppercase mb-2">公開鍵（配布用）</p>
                                     <div className="font-mono text-[9px] text-slate-500 break-all line-clamp-3 bg-white p-2 rounded-lg border border-slate-100">
                                         {config.publicKey}
+                                    </div>
+                                    <div className="absolute top-2 right-2 p-1 bg-green-100 text-[#16a34a] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Zap size={10} />
                                     </div>
                                 </div>
                             ) : (
@@ -176,10 +198,17 @@ export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerate
                         <div className="grid grid-cols-2 gap-3 pt-2">
                             <button
                                 onClick={onGenerateKeys}
-                                disabled={config.isRunning}
-                                className="py-4 bg-white border-2 border-slate-200 rounded-2xl font-black text-slate-600 hover:border-slate-400 transition-all text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                                disabled={config.isRunning || isGeneratingKeys}
+                                className={`
+                                    py-4 rounded-2xl font-black transition-all text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50
+                                    ${isGeneratingKeys ? 'bg-slate-100 text-slate-400 cursor-wait' : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-400'}
+                                `}
                             >
-                                <Key size={16} /> 鍵を再生成
+                                {isGeneratingKeys ? (
+                                    <><RefreshCw size={16} className="animate-spin" /> 生成中...</>
+                                ) : (
+                                    <><Key size={16} /> 鍵を生成</>
+                                )}
                             </button>
                             <button
                                 onClick={handleExport}
@@ -191,8 +220,12 @@ export const ServerPage = ({ config, onConfigChange, onStart, onStop, onGenerate
                     </section>
                 </div>
             </div>
+
+            <PortModal
+                isOpen={isPortModalOpen}
+                onClose={() => setIsPortModalOpen(false)}
+                onAdd={handleAddPort}
+            />
         </motion.div>
     );
 };
-
-const Settings = (props: any) => <Globe {...props} />;

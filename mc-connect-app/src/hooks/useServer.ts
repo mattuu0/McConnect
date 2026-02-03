@@ -8,11 +8,14 @@ export const useServer = () => {
         return saved ? JSON.parse(saved) : { serverModeEnabled: false };
     });
 
+    const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
+
     const [serverConfig, setServerConfig] = useState<ServerConfig>(() => {
         const saved = localStorage.getItem("mc-connect-server-config");
         return saved ? JSON.parse(saved) : {
             isRunning: false,
             listenPort: 8080,
+            encryptionType: "RSA",
             allowedPorts: [{ port: 25565, protocol: "TCP" }]
         };
     });
@@ -33,13 +36,25 @@ export const useServer = () => {
     }, []);
 
     const generateKeys = async () => {
+        if (serverConfig.encryptionType !== "RSA") {
+            alert("現在、RSA以外の暗号化方式はバックエンドで未実装です。");
+            return false;
+        }
+
+        setIsGeneratingKeys(true);
         try {
+            // Simulate some delay for UI feedback if it's too fast, 
+            // but generate_server_keys 2048bit is usually fast on modern PCs.
+            // Still, 4096bit can take a bit.
             const [priv, pub] = await invoke<[string, string]>("generate_server_keys");
             setServerConfig(prev => ({ ...prev, privateKey: priv, publicKey: pub }));
             return true;
         } catch (error) {
             console.error("Key generation failed", error);
+            alert(`鍵生成に失敗しました: ${error}`);
             return false;
+        } finally {
+            setIsGeneratingKeys(false);
         }
     };
 
@@ -75,7 +90,8 @@ export const useServer = () => {
             name: "Server Connection",
             ws_url: `ws://localhost:${serverConfig.listenPort}/ws`,
             mappings: serverConfig.allowedPorts,
-            public_key: serverConfig.publicKey
+            public_key: serverConfig.publicKey,
+            encryption_type: serverConfig.encryptionType
         };
         return JSON.stringify(config, null, 2);
     };
@@ -85,6 +101,7 @@ export const useServer = () => {
         setSettings,
         serverConfig,
         setServerConfig,
+        isGeneratingKeys,
         generateKeys,
         startServer,
         stopServer,

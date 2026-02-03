@@ -28,7 +28,7 @@ export default function App() {
   const { mappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings, importConfig } = useMappings();
 
   // サーバー操作用フック
-  const { settings, setSettings, serverConfig, setServerConfig, generateKeys, startServer, stopServer } = useServer();
+  const { settings, setSettings, serverConfig, setServerConfig, isGeneratingKeys, generateKeys, startServer, stopServer } = useServer();
 
   // ログデータの操作用フック
   const { logs, logEndRef } = useLogs(currentView);
@@ -144,6 +144,7 @@ export default function App() {
                 onStart={startServer}
                 onStop={stopServer}
                 onGenerateKeys={generateKeys}
+                isGeneratingKeys={isGeneratingKeys}
               />
             }
             {currentView === "console" &&
