@@ -99,6 +99,17 @@ pub struct ServerInfoResponsePayload {
     pub allowed_ports: Vec<AllowedPort>,
 }
 
+/// クライアントへの配布用設定ファイル構造体
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ServerExportConfig {
+    /// 接続先ホスト（ドメインまたはIP）
+    pub host: String,
+    /// 待受ポート
+    pub port: u16,
+    /// サーバーの公開鍵（Base64）
+    pub public_key: String,
+}
+
 /// Ping/Pong で使用するペイロード
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PingPayload {
