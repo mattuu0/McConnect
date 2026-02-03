@@ -2,6 +2,9 @@ use actix::prelude::*;
 use actix_web_actors::ws;
 use tokio::sync::mpsc;
 use crate::models::packet::{AllowedPort, Message, Command, ConnectResponsePayload};
+use crate::encryption::{SecureContext, RsaKeyPair};
+use std::sync::Arc;
+use std::time::Duration;
 
 /// [WsProxySession]
 /// ゲートウェイ（サーバー）側で、WebSocket接続1つにつき、1つ生成されるアクターです。
@@ -18,26 +21,40 @@ pub struct WsProxySession {
     /// 接続要求 (`Connect`) が来た際に、このリストに合致するかチェックします。
     pub allowed_ports: Vec<AllowedPort>,
 
+    /// セッションの暗号化状態を管理するコンテキスト
+    pub secure_context: SecureContext,
+    /// サーバー自身のキーペア（秘密鍵を使用してクライアントからの共通鍵を復号する）
+    pub server_key: Arc<RsaKeyPair>,
     /// トンネルの初期化（ターゲットへの接続確立）が完了しているかどうか。
-    /// 一度初期化した後に再度 `Connect` が来た場合のガードとして使用します。
     pub initialized: bool,
 }
 
 impl WsProxySession {
-    /// 許可ポート情報を保持した新しいセッションアクターを作成します。
-    pub fn new(allowed_ports: Vec<AllowedPort>) -> Self {
+    /// 許可ポート情報とサーバーキーを保持した新しいセッションアクターを作成します。
+    pub fn new(allowed_ports: Vec<AllowedPort>, server_key: Arc<RsaKeyPair>) -> Self {
         Self {
             tcp_tx: None,
             allowed_ports,
+            secure_context: SecureContext::new(),
+            server_key,
             initialized: false,
         }
     }
 
     /// [send_packet]
-    /// コンテンツ（コマンドとデータ）を受け取り、MessagePack 形式でカプセル化して
+    /// コンテンツ（コマンドとデータ）を受け取り、必要に応じて暗号化して
     /// WebSocket クライアントへバイナリデータとして送信します。
     pub fn send_packet(&self, ctx: &mut ws::WebsocketContext<Self>, command: Command, payload: Vec<u8>) {
         let msg = Message::new(command, payload);
+        // コンテキストを使用してペイロードを暗号化
+        let msg = match self.secure_context.seal_message(msg) {
+            Ok(m) => m,
+            Err(e) => {
+                log::error!("Packet encryption error: {}", e);
+                return;
+            }
+        };
+        
         match msg.to_vec() {
             Ok(bin) => ctx.binary(bin),
             Err(e) => log::error!("Packet serialization error: {}", e),
@@ -64,8 +81,16 @@ impl Actor for WsProxySession {
     type Context = ws::WebsocketContext<Self>;
 
     /// アクター（接続）が開始された時に呼ばれます。
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        log::info!("WebSocket session started. Waiting for Connect packet...");
+    fn started(&mut self, ctx: &mut Self::Context) {
+        log::info!("WebSocket session started. Waiting for SecureConnect packet...");
+        
+        // 30秒以内にハンドシェイクが完了しない場合は強制切断
+        ctx.run_later(Duration::from_secs(30), |act, ctx| {
+            if !act.initialized {
+                log::warn!("Handshake timeout (30s). Closing connection.");
+                ctx.stop();
+            }
+        });
     }
 
     /// アクターが停止する直前に呼ばれます。
