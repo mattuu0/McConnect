@@ -65,9 +65,11 @@ export const useServer = () => {
         }
         try {
             await invoke("start_server", {
-                port: serverConfig.listenPort,
-                allowed_ports: serverConfig.allowedPorts.map(p => [p.port, p.protocol]),
-                private_key_b64: serverConfig.privateKey
+                config: {
+                    port: serverConfig.listenPort,
+                    allowedPorts: serverConfig.allowedPorts.map(p => [p.port, p.protocol]),
+                    privateKeyB64: serverConfig.privateKey
+                }
             });
             setServerConfig(prev => ({ ...prev, isRunning: true }));
         } catch (error) {

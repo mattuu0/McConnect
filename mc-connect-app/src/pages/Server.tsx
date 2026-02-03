@@ -26,7 +26,7 @@ export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, 
         onConfigChange({ ...config, allowedPorts: newPorts });
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         if (!config.publicKey) {
             alert("公開鍵がありません。先に鍵を生成してください。");
             return;
@@ -38,7 +38,31 @@ export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, 
             public_key: config.publicKey,
             encryption_type: config.encryptionType
         };
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+
+        const jsonString = JSON.stringify(exportData, null, 2);
+
+        // File System Access API を試行 (救済策・デスクトップブラウザ向け)
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await (window as any).showSaveFilePicker({
+                    suggestedName: 'mc-connect-config.json',
+                    types: [{
+                        description: 'JSON Files',
+                        accept: { 'application/json': ['.json'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(jsonString);
+                await writable.close();
+                return;
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
+                console.error("showSaveFilePicker failed", err);
+            }
+        }
+
+        // 従来のダウンロード方法 (フォールバック)
+        const blob = new Blob([jsonString], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
