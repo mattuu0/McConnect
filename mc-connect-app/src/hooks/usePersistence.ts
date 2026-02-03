@@ -26,6 +26,8 @@ export const usePersistence = (
                 })),
                 serverConfig: {
                     listenPort: serverConfig.listenPort,
+                    publicHost: serverConfig.publicHost,
+                    publicPort: serverConfig.publicPort,
                     privateKey: serverConfig.privateKey,
                     publicKey: serverConfig.publicKey,
                     encryptionType: serverConfig.encryptionType,

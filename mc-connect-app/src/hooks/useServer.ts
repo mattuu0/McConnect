@@ -10,6 +10,8 @@ export const useServer = () => {
     const [serverConfig, setServerConfig] = useState<ServerConfig>({
         isRunning: false,
         listenPort: 8080,
+        publicHost: "",
+        publicPort: undefined,
         encryptionType: "RSA",
         allowedPorts: [{ port: 25565, protocol: "TCP" }]
     });

@@ -59,6 +59,8 @@ export default function App() {
             setServerConfig(prev => ({
               ...prev,
               listenPort: config.serverConfig.listenPort,
+              publicHost: config.serverConfig.publicHost,
+              publicPort: config.serverConfig.publicPort,
               privateKey: config.serverConfig.privateKey,
               publicKey: config.serverConfig.publicKey,
               encryptionType: config.serverConfig.encryptionType,

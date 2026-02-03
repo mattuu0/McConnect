@@ -35,7 +35,7 @@ export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, 
         }
         const exportData = {
             name: "Server Connection",
-            ws_url: `ws://YOUR_IP:${config.listenPort}/ws`,
+            ws_url: `ws://${config.publicHost || 'YOUR_IP'}:${config.publicPort || config.listenPort}/ws`,
             mappings: config.allowedPorts,
             public_key: config.publicKey,
             encryption_type: config.encryptionType
@@ -140,6 +140,29 @@ export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, 
                                     className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-bold focus:border-[#16a34a] outline-none disabled:opacity-50"
                                     placeholder="8080"
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-black text-slate-500 block mb-2 px-1">公開用ホスト (IP/ドメイン)</label>
+                                    <input
+                                        type="text"
+                                        value={config.publicHost || ''}
+                                        onChange={e => onConfigChange({ ...config, publicHost: e.target.value })}
+                                        className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-bold focus:border-[#16a34a] outline-none"
+                                        placeholder="example.com"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-black text-slate-500 block mb-2 px-1">公開用ポート</label>
+                                    <input
+                                        type="number"
+                                        value={config.publicPort || ''}
+                                        onChange={e => onConfigChange({ ...config, publicPort: e.target.value ? Number(e.target.value) : undefined })}
+                                        className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono font-bold focus:border-[#16a34a] outline-none"
+                                        placeholder={config.listenPort.toString()}
+                                    />
+                                </div>
                             </div>
 
                             <div>

@@ -41,6 +41,8 @@ pub struct MappingConfig {
 #[serde(rename_all = "camelCase")]
 pub struct SavedServerConfig {
     pub listen_port: u16,
+    pub public_host: Option<String>,
+    pub public_port: Option<u16>,
     pub private_key: Option<String>,
     pub public_key: Option<String>,
     pub encryption_type: String,

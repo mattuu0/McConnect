@@ -93,6 +93,10 @@ export interface ServerConfig {
     isRunning: boolean;
     /** 待ち受けポート */
     listenPort: number;
+    /** 公開用ホスト (IP/ドメイン) */
+    publicHost?: string;
+    /** 公開用ポート */
+    publicPort?: number;
     /** 秘密鍵 (PEM) */
     privateKey?: string;
     /** 公開鍵 (DER/Base64) */
