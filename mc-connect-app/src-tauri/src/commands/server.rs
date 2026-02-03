@@ -29,12 +29,21 @@ pub async fn start_server<R: Runtime>(
     let port = config.port;
     let allowed_ports = config.allowed_ports;
     let private_key_b64 = config.private_key_b64;
-    let state = STATE.lock().await;
+    let encryption_type = config.encryption_type;
+
+    let mut state = STATE.lock().await;
     if state.server_handle.is_some() {
         return Err("Server is already running".into());
     }
 
     use base64::{engine::general_purpose, Engine as _};
+
+    if encryption_type != "RSA" {
+        return Err(format!(
+            "暗号化方式 {} は現在バックエンドで未実装です。RSAを使用してください。",
+            encryption_type
+        ));
+    }
 
     let der = general_purpose::STANDARD
         .decode(private_key_b64.trim())
@@ -55,23 +64,23 @@ pub async fn start_server<R: Runtime>(
     emit_log(
         &app,
         "INFO",
-        format!("サーバーを起動します (Port: {})", port),
+        format!(
+            "サーバーを起動します (Port: {}, Protocol: {})",
+            port, encryption_type
+        ),
     );
 
-    let _handle = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-
-        rt.block_on(async {
-            match mc_connect_core::start_server("0.0.0.0", port, ports, key_pair).await {
-                Ok(_) => emit_log(&app, "INFO", "サーバーが終了しました".into()),
-                Err(e) => emit_log(&app, "ERROR", format!("サーバーエラー: {}", e)),
-            }
-        });
+    let handle = tokio::spawn(async move {
+        // Actix server usually needs to run on its own thread if we want it to be responsive
+        // and not block the tokio executor, but HttpServer::run().await is fine in tokio.
+        // If we want to be able to stop it via JoinHandle::abort, it needs to be awaited here.
+        match mc_connect_core::start_server("0.0.0.0", port, ports, key_pair).await {
+            Ok(_) => emit_log(&app, "INFO", "サーバーが終了しました".into()),
+            Err(e) => emit_log(&app, "ERROR", format!("サーバーエラー: {}", e)),
+        }
     });
 
+    state.server_handle = Some(handle);
     Ok(())
 }
 
