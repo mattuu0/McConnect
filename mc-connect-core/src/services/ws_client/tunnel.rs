@@ -1,63 +1,129 @@
-use std::sync::Arc;
-use tokio::net::TcpStream;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
-use futures_util::{StreamExt, SinkExt};
-use url::Url;
+use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
-use tokio::time::{interval, Duration, Instant};
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio::time::{Duration, Instant, interval};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
+use url::Url;
 
-use crate::models::packet::{Message, Command, ConnectResponsePayload, Protocol, PingPayload};
-use crate::encryption::{RsaKeyPair, create_secure_connect_packet};
 use super::stats::TunnelStats;
+use crate::encryption::{RsaKeyPair, create_secure_connect_packet};
+use crate::models::packet::{Command, ConnectResponsePayload, Message, PingPayload, Protocol};
 
 /// [handle_tunnel]
 /// セキュアなトンネル接続を確立し、データの送受信を行うメインロジックです。
 pub async fn handle_tunnel(
-    tcp_stream: TcpStream, 
-    ws_url: String, 
-    remote_port: u16, 
+    tcp_stream: TcpStream,
+    ws_url: String,
+    remote_port: u16,
     protocol: Protocol,
     stats: Arc<TunnelStats>,
     mut manual_ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
     server_public_key: Arc<RsaKeyPair>, // サーバーの公開鍵
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    
     // 1. WebSocket 接続の開始
-    let url = Url::parse(&ws_url)?;
-    let (ws_stream, _) = connect_async(url).await?;
+    let url = match Url::parse(&ws_url) {
+        Ok(u) => u,
+        Err(e) => {
+            error!("URLの解析に失敗しました: {}", e);
+            return Err(e.into());
+        }
+    };
+    info!("WebSocket 接続を開始します: {}", url);
+    let (ws_stream, _) = match connect_async(url).await {
+        Ok(v) => v,
+        Err(e) => {
+            error!("WebSocket 接続自体に失敗しました: {}", e);
+            return Err(e.into());
+        }
+    };
+    info!("WebSocket 接続が確立されました。");
     let (mut ws_write, mut ws_read) = ws_stream.split();
 
     // 2. セキュアハンドシェイク (Handshake Phase)
-    // 共通鍵(AES)を生成し、それをサーバーの公開鍵(RSA)で暗号化したパケットを作成します。
-    let (secure_context, handshake_packet) = create_secure_connect_packet(
-        protocol, 
-        remote_port, 
-        server_public_key.as_ref()
-    )?;
-
-    // ハンドシェイクパケットを送信（このパケット自体は暗号化されていないコンテナで送る）
-    ws_write.send(WsMessage::Binary(handshake_packet.to_vec()?)).await?;
-
-    // サーバーからの応答待ち（30秒タイムアウトは WebSocket レイヤーやサーバー側で管理）
-    if let Some(msg) = ws_read.next().await {
-        let bin = msg?.into_data();
-        let res_packet = Message::from_slice(&bin)?;
-        
-        // 応答パケットを復号
-        let res_packet = secure_context.unseal_message(res_packet)?;
-
-        if res_packet.command == Command::ConnectResponse {
-            let res: ConnectResponsePayload = res_packet.deserialize_payload()?;
-            if !res.success {
-                return Err(format!("Gateway rejected secure connection: {}", res.message).into());
+    info!(
+        "セキュアハンドシェイクを開始します (Target Port: {}, Protocol: {:?})",
+        remote_port, protocol
+    );
+    let (secure_context, handshake_packet) =
+        match create_secure_connect_packet(protocol, remote_port, server_public_key.as_ref()) {
+            Ok(v) => v,
+            Err(e) => {
+                error!("ハンドシェイクパケットの生成に失敗: {}", e);
+                return Err(e);
             }
-            info!("Secure handshake successful. Symmetric encryption is now active.");
-        } else {
-            return Err("Protocol error: Expected ConnectResponse after SecureConnect".into());
+        };
+
+    // ハンドシェイクパケットを送信
+    info!("SecureConnect パケットを送信します...");
+    let bin = match handshake_packet.to_vec() {
+        Ok(b) => b,
+        Err(e) => {
+            error!("ハンドシェイクパケットのシリアライズに失敗: {}", e);
+            return Err(e);
         }
-    } else {
-        return Err("Connection closed by server during handshake".into());
+    };
+
+    if let Err(e) = ws_write.send(WsMessage::Binary(bin)).await {
+        error!("パケットの送信に失敗しました: {}", e);
+        return Err(e.into());
+    }
+
+    // サーバーからの応答待ち
+    info!("ゲートウェイからの応答を待機中...");
+    match ws_read.next().await {
+        Some(Ok(msg)) => {
+            let bin = msg.into_data();
+            let res_packet = match Message::from_slice(&bin) {
+                Ok(m) => m,
+                Err(e) => {
+                    error!("応答メッセージのデコードに失敗: {}", e);
+                    return Err(e);
+                }
+            };
+
+            info!("応答パケットを受信しました。復号を試みます...");
+            // 応答パケットを復号
+            let res_packet = match secure_context.unseal_message(res_packet) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("応答メッセージの復号に失敗: {}", e);
+                    return Err(e.into());
+                }
+            };
+
+            if res_packet.command == Command::ConnectResponse {
+                let res: ConnectResponsePayload = match res_packet.deserialize_payload() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("ConnectResponse ペイロードのデシリアライズに失敗: {}", e);
+                        return Err(e);
+                    }
+                };
+                if !res.success {
+                    error!("ゲートウェイが接続を拒否しました: {}", res.message);
+                    return Err(
+                        format!("Gateway rejected secure connection: {}", res.message).into(),
+                    );
+                }
+                info!("セキュアハンドシェイクに成功しました。暗号化トンネルが有効です。");
+            } else {
+                error!(
+                    "プロトコルエラー: ConnectResponse 以外のパケットを受信しました: {:?}",
+                    res_packet.command
+                );
+                return Err("Protocol error: Expected ConnectResponse after SecureConnect".into());
+            }
+        }
+        Some(Err(e)) => {
+            error!("WebSocket でエラーが発生しました: {}", e);
+            return Err(e.into());
+        }
+        None => {
+            error!("ハンドシェイク中にサーバーによって接続が閉じられました。");
+            return Err("Connection closed by server during handshake".into());
+        }
     }
 
     // --- 以降、すべての通信は secure_context を通じて暗号化されます ---
@@ -74,9 +140,14 @@ pub async fn handle_tunnel(
             match tcp_read.read(&mut buf).await {
                 Ok(0) => break,
                 Ok(n) => {
-                    stats_up.upload_total.fetch_add(n as u64, std::sync::atomic::Ordering::Relaxed);
+                    stats_up
+                        .upload_total
+                        .fetch_add(n as u64, std::sync::atomic::Ordering::Relaxed);
                     // データを Data パケットとして送信キューへ
-                    if itx_up.send(Message::new(Command::Data, buf[..n].to_vec())).is_err() {
+                    if itx_up
+                        .send(Message::new(Command::Data, buf[..n].to_vec()))
+                        .is_err()
+                    {
                         break;
                     }
                 }
@@ -95,9 +166,13 @@ pub async fn handle_tunnel(
         let mut interval = interval(Duration::from_secs(5));
         loop {
             interval.tick().await;
-            let ping = PingPayload { timestamp: Instant::now().elapsed().as_millis() as u64 };
+            let ping = PingPayload {
+                timestamp: Instant::now().elapsed().as_millis() as u64,
+            };
             if let Ok(p) = Message::from_payload(Command::Ping, &ping) {
-                if itx_ping.send(p).is_err() { break; }
+                if itx_ping.send(p).is_err() {
+                    break;
+                }
             }
         }
     });
@@ -111,7 +186,7 @@ pub async fn handle_tunnel(
                     Ok(ws_msg) => {
                         let bin = ws_msg.into_data();
                         let encrypted_packet = Message::from_slice(&bin)?;
-                        
+
                         // パケットを復号
                         let packet = match secure_context.unseal_message(encrypted_packet) {
                             Ok(p) => p,
@@ -182,7 +257,7 @@ pub async fn handle_tunnel(
             }
         }
     }
-    
+
     info!("Secure tunnel session closed.");
     Ok(())
 }

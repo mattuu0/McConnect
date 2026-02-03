@@ -34,6 +34,8 @@ pub fn run() {
             commands::load_config
         ])
         .setup(|app| {
+            crate::utils::init_logger(app.handle().clone());
+
             let quit_i = MenuItem::with_id(app, "quit", "Quit McConnect", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Open Dashboard", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
