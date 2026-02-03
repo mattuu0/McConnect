@@ -112,6 +112,8 @@ pub struct ServerExportConfig {
     pub port: u16,
     /// サーバーの公開鍵（Base64）
     pub public_key: String,
+    /// 許可ポート設定 (server 用、オプショナル)
+    pub allowed_ports: Option<String>,
 }
 
 /// Ping/Pong で使用するペイロード
@@ -140,7 +142,10 @@ impl Message {
 
     /// 特定の構造体（ペイロード）を MessagePack でシリアライズし、
     /// それを包んだ Message コンテナを生成します。
-    pub fn from_payload<T: Serialize>(command: Command, payload: &T) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn from_payload<T: Serialize>(
+        command: Command,
+        payload: &T,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let serialized = rmp_serde::to_vec(payload)?;
         Ok(Self::new(command, serialized))
     }
@@ -157,7 +162,9 @@ impl Message {
     }
 
     /// Message の payload 部分を特定の構造体にデシリアライズします。
-    pub fn deserialize_payload<'a, T: Deserialize<'a>>(&'a self) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn deserialize_payload<'a, T: Deserialize<'a>>(
+        &'a self,
+    ) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
         Ok(rmp_serde::from_slice(&self.payload)?)
     }
 }
