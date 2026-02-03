@@ -133,24 +133,6 @@ export const useMappings = () => {
         }
     };
 
-    /**
-     * 新しいマッピングを追加する
-     * @param partialMapping 追加するマッピングデータ（一部）
-     */
-    const addMapping = (partialMapping: Partial<Mapping>) => {
-        const newId = Math.random().toString(36).substr(2, 9);
-        setMappings(prevMappings => [...prevMappings, {
-            ...partialMapping as Mapping,
-            id: newId,
-            name: partialMapping.name || "新規トンネル",
-            isRunning: false,
-            statusMessage: "待機中",
-            loading: false,
-            hasFailed: false,
-            speedHistory: { up: [], down: [] },
-            latencyHistory: []
-        }]);
-    };
 
     /**
      * 既存のマッピング情報を更新する
@@ -214,7 +196,6 @@ export const useMappings = () => {
         startMapping,
         stopMapping,
         triggerPing,
-        addMapping,
         updateMapping,
         deleteMappings,
         importConfig

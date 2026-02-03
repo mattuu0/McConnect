@@ -27,7 +27,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>("dashboard");
 
   // マッピングデータの操作用フック
-  const { mappings, setMappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings, importConfig } = useMappings();
+  const { mappings, setMappings, startMapping, stopMapping, triggerPing, updateMapping, deleteMappings, importConfig } = useMappings();
 
   // サーバー操作用フック
   const { settings, setSettings, serverConfig, setServerConfig, isGeneratingKeys, generateKeys, startServer, stopServer } = useServer();
@@ -67,21 +67,7 @@ export default function App() {
             setSettings(config.appSettings);
           }
         } else {
-          // 初回起動時やファイルがない場合はデフォルト値を設定
-          setMappings([{
-            id: "default",
-            name: "Default Tunnel",
-            wsUrl: "ws://localhost:8080/ws",
-            bindAddr: "127.0.0.1",
-            localPort: 25565,
-            remotePort: 25565,
-            protocol: "TCP",
-            pingInterval: 5,
-            isRunning: false,
-            statusMessage: "待機中",
-            speedHistory: { up: [], down: [] },
-            latencyHistory: []
-          }]);
+          setMappings([]);
         }
       } catch (error) {
         console.error("Failed to load config:", error);
@@ -96,22 +82,12 @@ export default function App() {
   usePersistence(mappings, serverConfig, settings, initialized);
 
   // モーダルや削除モードの状態管理
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingMapping, setEditingMapping] = useState<Mapping | null>(null);
 
-  // 新規作成時の初期値
-  const [newMapping, setNewMapping] = useState<Partial<Mapping>>({
-    name: "サバイバルサーバー",
-    wsUrl: "ws://localhost:8080/ws",
-    bindAddr: "127.0.0.1",
-    localPort: 25565,
-    remotePort: 25565,
-    protocol: "TCP",
-    pingInterval: 5
-  });
+  // 新規作成時の初期値 (削除)
 
   /**
    * 接続開始/停止の切り替え処理
@@ -189,7 +165,6 @@ export default function App() {
                 setIsDeleteMode={setIsDeleteMode}
                 selectedIds={selectedIds}
                 setSelectedIds={setSelectedIds}
-                setShowAddModal={setShowAddModal}
                 onToggleConnect={handleToggleConnect}
                 onTriggerPing={triggerPing}
                 onEdit={handleEdit}
@@ -225,18 +200,6 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
-
-      {/* 各種モーダル */}
-      {/* 新規作成モーダル */}
-      <MappingModal
-        isOpen={showAddModal}
-        title="新規トンネル作成"
-        mapping={newMapping}
-        onClose={() => setShowAddModal(false)}
-        onSave={() => { addMapping(newMapping); setShowAddModal(false); }}
-        onChange={setNewMapping}
-        submitLabel="設定を保存する"
-      />
 
       {/* 編集モーダル */}
       <MappingModal

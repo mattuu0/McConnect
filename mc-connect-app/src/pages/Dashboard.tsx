@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, X, ArrowUpCircle } from "lucide-react";
+import { Trash2, X, ArrowUpCircle } from "lucide-react";
 import { Mapping } from "../types";
 import { MappingCard } from "../components/MappingCard";
 
@@ -17,8 +17,6 @@ interface DashboardProps {
     selectedIds: string[];
     /** 選択状態を更新する関数 */
     setSelectedIds: (ids: string[]) => void;
-    /** 追加用モーダルの表示状態を制御する関数 */
-    setShowAddModal: (show: boolean) => void;
     /** 接続状態の切り替えを実行するコールバック */
     onToggleConnect: (event: React.MouseEvent, mapping: Mapping) => void;
     /** 導通確認（PING）を実行するコールバック */
@@ -42,7 +40,6 @@ export const Dashboard = ({
     setIsDeleteMode,
     selectedIds,
     setSelectedIds,
-    setShowAddModal,
     onToggleConnect,
     onTriggerPing,
     onEdit,
@@ -136,14 +133,6 @@ export const Dashboard = ({
                                             onChange={handleFileChange}
                                         />
                                     </label>
-                                    {/* 新規作成ボタン */}
-                                    <button
-                                        onClick={() => setShowAddModal(true)}
-                                        className="bg-[#16a34a] hover:bg-[#15803d] text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition-all text-sm border-b-4 border-green-800 active:border-b-0 active:translate-y-1 h-[46px]"
-                                    >
-                                        <Plus size={18} strokeWidth={3} />
-                                        <span>マッピングを追加</span>
-                                    </button>
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -172,7 +161,7 @@ export const Dashboard = ({
                 {mappings.length === 0 && (
                     <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-white/50">
                         <p className="text-slate-400 font-black text-lg">マッピングが登録されていません。</p>
-                        <p className="text-slate-300 text-sm mt-2">「マッピングを追加」ボタンから開始してください。</p>
+                        <p className="text-slate-300 text-sm mt-2">「インポート」ボタンから設定ファイルを読み込んでください。</p>
                     </div>
                 )}
             </div>
