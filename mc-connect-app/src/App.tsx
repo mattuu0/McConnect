@@ -45,13 +45,15 @@ export default function App() {
         const config: any = await invoke("load_config");
         if (config) {
           if (config.mappings) {
-            setMappings(config.mappings.map((m: any) => ({
-              ...m,
-              isRunning: false,
-              statusMessage: "待機中",
-              speedHistory: { up: [], down: [] },
-              latencyHistory: []
-            })));
+            setMappings(config.mappings
+              .filter((m: any) => m.id !== "default")
+              .map((m: any) => ({
+                ...m,
+                isRunning: false,
+                statusMessage: "待機中",
+                speedHistory: { up: [], down: [] },
+                latencyHistory: []
+              })));
           }
           if (config.serverConfig) {
             setServerConfig(prev => ({
