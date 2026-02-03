@@ -1,19 +1,18 @@
 use crate::models::AppPersistConfig;
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 
 const CONFIG_FILE_NAME: &str = "mc-connect-config.json";
 
-fn get_config_path<R: Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf, String> {
-    app_handle
-        .path()
-        .app_config_dir()
+fn get_config_path<R: Runtime>(_app_handle: &AppHandle<R>) -> Result<PathBuf, String> {
+    std::env::current_exe()
         .map(|mut path| {
+            path.pop(); // Remove the executable name
             path.push(CONFIG_FILE_NAME);
             path
         })
-        .map_err(|e| format!("設定ディレクトリの取得に失敗しました: {}", e))
+        .map_err(|e| format!("実行ファイルのディレクトリ取得に失敗しました: {}", e))
 }
 
 #[tauri::command]

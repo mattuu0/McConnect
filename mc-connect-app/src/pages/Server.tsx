@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Server, Play, Square, Key, Share2, Plus, Trash2, ShieldCheck, Globe, Settings as SettingsIcon, RefreshCw, Zap } from "lucide-react";
 import { ServerConfig } from "../types";
 import { PortModal } from "../components/Modals/PortModal";
+import { ConfirmModal } from "../components/Modals/ConfirmModal";
 
 interface ServerPageProps {
     config: ServerConfig;
@@ -15,6 +16,7 @@ interface ServerPageProps {
 
 export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, onStop, onGenerateKeys }: ServerPageProps) => {
     const [isPortModalOpen, setIsPortModalOpen] = useState(false);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
     const handleAddPort = (port: number, protocol: "TCP" | "UDP") => {
         const newPorts = [...config.allowedPorts, { port, protocol }];
@@ -221,7 +223,7 @@ export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, 
 
                         <div className="grid grid-cols-2 gap-3 pt-2">
                             <button
-                                onClick={onGenerateKeys}
+                                onClick={() => setIsConfirmModalOpen(true)}
                                 disabled={config.isRunning || isGeneratingKeys}
                                 className={`
                                     py-4 rounded-2xl font-black transition-all text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50
@@ -249,6 +251,18 @@ export const ServerPage = ({ config, isGeneratingKeys, onConfigChange, onStart, 
                 isOpen={isPortModalOpen}
                 onClose={() => setIsPortModalOpen(false)}
                 onAdd={handleAddPort}
+            />
+
+            <ConfirmModal
+                isOpen={isConfirmModalOpen}
+                title="鍵ペアを生成しますか？"
+                message={config.publicKey
+                    ? "新しい鍵を生成すると、現在の鍵は上書きされます。\n既にクライアントへ配布済みの設定ファイルがある場合、クライアントは接続できなくなります。"
+                    : "サーバー用のRSAキーペアを新規に生成します。\n生成完了後、クライアントへ配布するための設定ファイルを書き出せるようになります。"
+                }
+                confirmLabel="生成を開始"
+                onConfirm={onGenerateKeys}
+                onClose={() => setIsConfirmModalOpen(false)}
             />
         </motion.div>
     );
