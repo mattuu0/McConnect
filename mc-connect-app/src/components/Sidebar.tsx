@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Shield, Terminal, Info, Menu } from "lucide-react";
-import { View, Mapping } from "../types";
+import { Shield, Terminal, Info, Menu, Server, Settings } from "lucide-react";
+import { View, AppSettings } from "../types";
 import { twMerge } from "tailwind-merge";
 import { clsx, type ClassValue } from "clsx";
 import { motion } from "framer-motion";
@@ -21,14 +21,14 @@ interface SidebarProps {
     currentView: View;
     /** 表示モードを切り替えるための関数 */
     setCurrentView: (view: View) => void;
-    /** マッピングデータのリスト（将来的な利用のため） */
-    mappings: Mapping[];
+    /** アプリ設定 */
+    settings: AppSettings;
 }
 
 /**
  * アプリケーションのナビゲーション（デスクトップ：サイドバー、モバイル：ボトムバー）を管理するコンポーネント
  */
-export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps) => {
+export const Sidebar = ({ currentView, setCurrentView, settings }: SidebarProps) => {
     // デスクトップ版のサイドバーが開いているかどうか（折りたたみ状態）の管理
     const [isSidebarOpen, setSidebarOpen] = useState(true);
 
@@ -99,7 +99,11 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                 {/* ナビゲーションメニュー */}
                 <nav className="flex-1 py-6 space-y-0.5">
                     <SidebarItem viewId="dashboard" icon={Shield} label="トンネル管理" />
+                    {settings.serverModeEnabled && (
+                        <SidebarItem viewId="server" icon={Server} label="サーバー管理" />
+                    )}
                     <SidebarItem viewId="console" icon={Terminal} label="システムログ" />
+                    <SidebarItem viewId="settings" icon={Settings} label="設定" />
                     <SidebarItem viewId="about" icon={Info} label="アプリケーション情報" />
                 </nav>
 
@@ -124,6 +128,18 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                     <Shield size={20} />
                     <span className="text-[10px] font-bold">管理</span>
                 </button>
+                {settings.serverModeEnabled && (
+                    <button
+                        onClick={() => setCurrentView("server")}
+                        className={cn(
+                            "flex flex-col items-center justify-center flex-1 py-1 gap-1",
+                            currentView === "server" ? "text-[#16a34a]" : "text-slate-400"
+                        )}
+                    >
+                        <Server size={20} />
+                        <span className="text-[10px] font-bold">サーバー</span>
+                    </button>
+                )}
                 <button
                     onClick={() => setCurrentView("console")}
                     className={cn(
@@ -135,14 +151,14 @@ export const Sidebar = ({ currentView, setCurrentView, mappings }: SidebarProps)
                     <span className="text-[10px] font-bold">ログ</span>
                 </button>
                 <button
-                    onClick={() => setCurrentView("about")}
+                    onClick={() => setCurrentView("settings")}
                     className={cn(
                         "flex flex-col items-center justify-center flex-1 py-1 gap-1",
-                        currentView === "about" ? "text-[#16a34a]" : "text-slate-400"
+                        currentView === "settings" ? "text-[#16a34a]" : "text-slate-400"
                     )}
                 >
-                    <Info size={20} />
-                    <span className="text-[10px] font-bold">情報</span>
+                    <Settings size={20} />
+                    <span className="text-[10px] font-bold">設定</span>
                 </button>
             </nav>
         </>

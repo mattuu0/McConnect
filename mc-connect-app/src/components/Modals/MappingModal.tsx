@@ -88,7 +88,7 @@ export const MappingModal = ({
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">プロトコル</label>
                                     <select
                                         value={mapping.protocol || "TCP"}
-                                        onChange={event => onChange({ ...mapping, protocol: event.target.value })}
+                                        onChange={event => onChange({ ...mapping, protocol: event.target.value as "TCP" | "UDP" })}
                                         className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-black outline-none cursor-pointer appearance-none"
                                         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%2316a34a\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'3\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em', backgroundRepeat: 'no-repeat' }}
                                     >

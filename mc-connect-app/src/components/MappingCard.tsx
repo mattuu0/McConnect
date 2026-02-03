@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Globe, Play, Square, Trash2, ArrowUpCircle, ArrowDownCircle, Activity, RefreshCw, Clock } from "lucide-react";
+import { Globe, Play, Square, ArrowUpCircle, ArrowDownCircle, Activity, RefreshCw, Clock } from "lucide-react";
 import { Mapping } from "../types";
 
 /**

@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { Mapping, View } from "./types";
 import { useMappings } from "./hooks/useMappings";
 import { useLogs } from "./hooks/useLogs";
+import { useServer } from "./hooks/useServer";
 
 // 各コンポーネントのインポート
 import { Sidebar } from "./components/Sidebar";
@@ -12,6 +13,8 @@ import { MappingModal } from "./components/Modals/MappingModal";
 import { Dashboard } from "./pages/Dashboard";
 import { Console } from "./pages/Console";
 import { About } from "./pages/About";
+import { SettingsPage } from "./pages/Settings";
+import { ServerPage } from "./pages/Server";
 
 /**
  * アプリケーションのルートコンポーネント
@@ -23,6 +26,9 @@ export default function App() {
 
   // マッピングデータの操作用フック
   const { mappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings, importConfig } = useMappings();
+
+  // サーバー操作用フック
+  const { settings, setSettings, serverConfig, setServerConfig, generateKeys, startServer, stopServer } = useServer();
 
   // ログデータの操作用フック
   const { logs, logEndRef } = useLogs(currentView);
@@ -103,7 +109,11 @@ export default function App() {
       style={{ fontFamily: '"BIZ UDPGothic", sans-serif' }}
     >
       {/* 共通サイドバー */}
-      <Sidebar currentView={currentView} setCurrentView={setCurrentView} mappings={mappings} />
+      <Sidebar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        settings={settings}
+      />
 
       {/* メインビューエリア */}
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -126,8 +136,25 @@ export default function App() {
                 onImportConfig={importConfig}
               />
             }
+            {currentView === "server" && settings.serverModeEnabled &&
+              <ServerPage
+                key="server"
+                config={serverConfig}
+                onConfigChange={setServerConfig}
+                onStart={startServer}
+                onStop={stopServer}
+                onGenerateKeys={generateKeys}
+              />
+            }
             {currentView === "console" &&
               <Console key="console" logs={logs} logEndRef={logEndRef} />
+            }
+            {currentView === "settings" &&
+              <SettingsPage
+                key="settings"
+                settings={settings}
+                onSettingsChange={setSettings}
+              />
             }
             {currentView === "about" &&
               <About key="about" />
