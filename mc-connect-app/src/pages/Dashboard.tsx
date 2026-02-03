@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, ArrowUpCircle } from "lucide-react";
 import { Mapping } from "../types";
 import { MappingCard } from "../components/MappingCard";
 

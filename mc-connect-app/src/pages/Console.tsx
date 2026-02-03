@@ -34,54 +34,53 @@ export const Console = ({ logs, logEndRef }: ConsoleProps) => {
                 </div>
             </header>
 
-            {/* ログ表示エリア（ターミナル風デザイン） */}
-            <div className="flex-1 flex flex-col p-4 sm:p-10 pb-32">
-                <div className="flex-1 flex flex-col bg-[#1e293b] rounded-[2rem] border-4 border-slate-800 shadow-2xl overflow-hidden relative">
-                    {/* ターミナルヘッダー（OSのウィンドウ風デザイン） */}
-                    <div className="h-10 bg-slate-800 flex items-center px-4 space-x-2 shrink-0">
-                        <div className="w-3 h-3 rounded-full bg-red-500" />
-                        <div className="w-3 h-3 rounded-full bg-amber-500" />
-                        <div className="w-3 h-3 rounded-full bg-green-500" />
-                        <span className="ml-4 text-[10px] font-bold text-slate-400 font-mono tracking-widest uppercase">mc-connect-bridge.shell</span>
+            {/* ログ表示エリア（コマンドプロンプト風デザイン） */}
+            <div className="flex-1 flex flex-col p-4 sm:p-8 pb-32">
+                <div className="flex-1 flex flex-col bg-[#0c0c0c] border border-slate-700 shadow-2xl overflow-hidden relative">
+                    {/* シンプルなステータスバー */}
+                    <div className="h-8 bg-[#1e1e1e] flex items-center px-4 shrink-0 border-b border-slate-800">
+                        <TerminalIcon size={14} className="text-slate-400 mr-3" />
+                        <span className="text-[10px] font-bold text-slate-500 font-mono tracking-widest uppercase">McConnect Console Session</span>
                     </div>
 
                     {/* ログ本文エリア */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 font-mono text-[12px] sidebar:text-[14px] leading-relaxed scrollbar-terminal">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 font-mono text-[11px] sidebar:text-[12px] leading-relaxed scrollbar-terminal">
                         {logs.length === 0 ? (
                             // ログがない場合の表示
-                            <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 opacity-50">
+                            <div className="h-full flex flex-col items-center justify-center text-slate-700 space-y-2 opacity-50">
                                 <TerminalIcon size={48} />
-                                <p className="font-black">NO ACTIVE LOGS</p>
+                                <p className="font-black">Terminal Ready - No Input</p>
                             </div>
                         ) : (
                             // ログリストのレンダリング
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                                 {logs.map((log, index) => (
-                                    <div key={index} className="flex gap-4 group hover:bg-slate-800/50 rounded px-2 -mx-2 transition-colors">
+                                    <div key={index} className="flex gap-3 group hover:bg-white/5 rounded px-1 -mx-1 transition-colors">
                                         {/* タイムスタンプ */}
-                                        <span className="text-slate-500 font-bold select-none shrink-0 min-w-[85px]">
-                                            {log.timestamp}
+                                        <span className="text-slate-600 font-bold select-none shrink-0 w-16">
+                                            [{log.timestamp}]
                                         </span>
                                         {/* ログレベルと本文 */}
-                                        <span className="flex-1">
+                                        <div className="flex-1 min-w-0">
                                             {/* ログレベルに応じた色分け表示 */}
                                             <span className={`
-                                                font-black mr-3 px-1.5 rounded-[4px] text-[10px] uppercase tracking-tighter
-                                                ${log.level === "ERROR" ? "text-red-400 bg-red-900/30" :
-                                                    log.level === "SUCCESS" ? "text-green-400 bg-green-900/30" :
-                                                        log.level === "INFO" ? "text-cyan-400 bg-cyan-900/30" : "text-slate-400 bg-slate-700/50"}
+                                                inline-block font-black mr-2 px-1 rounded-[2px] text-[10px] uppercase tracking-tighter
+                                                ${log.level === "ERROR" ? "text-red-500" :
+                                                    log.level === "SUCCESS" ? "text-green-500" :
+                                                        log.level === "INFO" ? "text-blue-500" : "text-slate-500"}
                                             `}>
                                                 {log.level}
                                             </span>
                                             {/* ログ内容 */}
-                                            <span className={
-                                                log.level === "ERROR" ? "text-red-200" :
-                                                    log.level === "SUCCESS" ? "text-green-200" :
-                                                        log.level === "INFO" ? "text-cyan-200" : "text-slate-200"
-                                            }>
+                                            <span className={`
+                                                break-all whitespace-pre-wrap
+                                                ${log.level === "ERROR" ? "text-red-400" :
+                                                    log.level === "SUCCESS" ? "text-green-400" :
+                                                        log.level === "INFO" ? "text-slate-200" : "text-slate-300"}
+                                            `}>
                                                 {log.message}
                                             </span>
-                                        </span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

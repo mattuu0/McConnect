@@ -1,5 +1,5 @@
 use mc_connect_core::models::packet::{Protocol, ServerInfoResponsePayload, StatsPayload};
-use mc_connect_core::services::ws_client_service::TunnelStats;
+use mc_connect_core::services::ws_client::TunnelStats;
 use mc_connect_core::WsClientService;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
