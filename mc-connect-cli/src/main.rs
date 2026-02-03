@@ -1,10 +1,10 @@
 mod commands;
 mod utils;
 
-use clap::{Parser, Subcommand};
-use anyhow::Result;
-use crate::commands::server::run_server;
 use crate::commands::client::run_client;
+use crate::commands::server::run_server;
+use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(name = "mc-connect-cli")]
@@ -40,6 +40,11 @@ enum Commands {
         /// サーバーの秘密鍵/公開鍵ペア。指定しない場合は新規生成します。
         #[arg(long)]
         key_pair: Option<String>,
+
+        /// サーバー設定ファイル (JSON)。指定された場合、このファイルから設定を読み込みます。
+        /// 指定がない場合、CLI 引数を使用して起動し、設定を default.json に書き出します。
+        #[arg(long)]
+        config: Option<String>,
     },
     /// クライアントトンネルを開始します
     Client {
@@ -75,11 +80,45 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Server { host, public_host, port, allowed_ports, export, key_pair } => {
-            run_server(host, public_host, port, allowed_ports, export, key_pair).await
+        Commands::Server {
+            host,
+            public_host,
+            port,
+            allowed_ports,
+            export,
+            key_pair,
+            config,
+        } => {
+            run_server(
+                host,
+                public_host,
+                port,
+                allowed_ports,
+                export,
+                key_pair,
+                config,
+            )
+            .await
         }
-        Commands::Client { local_port, remote_port, protocol, ws_url, list_ports, public_key, config } => {
-            run_client(local_port, remote_port, protocol, ws_url, list_ports, public_key, config).await
+        Commands::Client {
+            local_port,
+            remote_port,
+            protocol,
+            ws_url,
+            list_ports,
+            public_key,
+            config,
+        } => {
+            run_client(
+                local_port,
+                remote_port,
+                protocol,
+                ws_url,
+                list_ports,
+                public_key,
+                config,
+            )
+            .await
         }
     }
 }
