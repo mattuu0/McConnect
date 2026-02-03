@@ -3,30 +3,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { ServerConfig, AppSettings } from "../types";
 
 export const useServer = () => {
-    const [settings, setSettings] = useState<AppSettings>(() => {
-        const saved = localStorage.getItem("mc-connect-settings");
-        return saved ? JSON.parse(saved) : { serverModeEnabled: false };
-    });
+    const [settings, setSettings] = useState<AppSettings>({ serverModeEnabled: false });
 
     const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
 
-    const [serverConfig, setServerConfig] = useState<ServerConfig>(() => {
-        const saved = localStorage.getItem("mc-connect-server-config");
-        return saved ? JSON.parse(saved) : {
-            isRunning: false,
-            listenPort: 8080,
-            encryptionType: "RSA",
-            allowedPorts: [{ port: 25565, protocol: "TCP" }]
-        };
+    const [serverConfig, setServerConfig] = useState<ServerConfig>({
+        isRunning: false,
+        listenPort: 8080,
+        encryptionType: "RSA",
+        allowedPorts: [{ port: 25565, protocol: "TCP" }]
     });
 
-    useEffect(() => {
-        localStorage.setItem("mc-connect-settings", JSON.stringify(settings));
-    }, [settings]);
-
-    useEffect(() => {
-        localStorage.setItem("mc-connect-server-config", JSON.stringify(serverConfig));
-    }, [serverConfig]);
 
     // Check actual status from backend on mount
     useEffect(() => {
@@ -68,7 +55,8 @@ export const useServer = () => {
                 config: {
                     port: serverConfig.listenPort,
                     allowedPorts: serverConfig.allowedPorts.map(p => [p.port, p.protocol]),
-                    privateKeyB64: serverConfig.privateKey
+                    privateKeyB64: serverConfig.privateKey,
+                    encryptionType: serverConfig.encryptionType
                 }
             });
             setServerConfig(prev => ({ ...prev, isRunning: true }));

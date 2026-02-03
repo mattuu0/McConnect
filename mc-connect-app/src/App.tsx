@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
+import { invoke } from "@tauri-apps/api/core";
 
 // 型定義とカスタムフックのインポート
 import { Mapping, View } from "./types";
 import { useMappings } from "./hooks/useMappings";
 import { useLogs } from "./hooks/useLogs";
 import { useServer } from "./hooks/useServer";
+import { usePersistence } from "./hooks/usePersistence";
 
 // 各コンポーネントのインポート
 import { Sidebar } from "./components/Sidebar";
@@ -25,13 +27,73 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>("dashboard");
 
   // マッピングデータの操作用フック
-  const { mappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings, importConfig } = useMappings();
+  const { mappings, setMappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings, importConfig } = useMappings();
 
   // サーバー操作用フック
   const { settings, setSettings, serverConfig, setServerConfig, isGeneratingKeys, generateKeys, startServer, stopServer } = useServer();
 
   // ログデータの操作用フック
   const { logs, logEndRef } = useLogs(currentView);
+
+  // 初期化フラグ（初回ロード完了を待ってから保存を開始するため）
+  const [initialized, setInitialized] = useState(false);
+
+  // 初回マウント時にバックエンドから設定を読み込む
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const config: any = await invoke("load_config");
+        if (config) {
+          if (config.mappings) {
+            setMappings(config.mappings.map((m: any) => ({
+              ...m,
+              isRunning: false,
+              statusMessage: "待機中",
+              speedHistory: { up: [], down: [] },
+              latencyHistory: []
+            })));
+          }
+          if (config.serverConfig) {
+            setServerConfig(prev => ({
+              ...prev,
+              listenPort: config.serverConfig.listenPort,
+              privateKey: config.serverConfig.privateKey,
+              publicKey: config.serverConfig.publicKey,
+              encryptionType: config.serverConfig.encryptionType,
+              allowedPorts: config.serverConfig.allowedPorts.map((p: any) => ({ port: p[0], protocol: p[1] }))
+            }));
+          }
+          if (config.appSettings) {
+            setSettings(config.appSettings);
+          }
+        } else {
+          // 初回起動時やファイルがない場合はデフォルト値を設定
+          setMappings([{
+            id: "default",
+            name: "Default Tunnel",
+            wsUrl: "ws://localhost:8080/ws",
+            bindAddr: "127.0.0.1",
+            localPort: 25565,
+            remotePort: 25565,
+            protocol: "TCP",
+            pingInterval: 5,
+            isRunning: false,
+            statusMessage: "待機中",
+            speedHistory: { up: [], down: [] },
+            latencyHistory: []
+          }]);
+        }
+      } catch (error) {
+        console.error("Failed to load config:", error);
+      } finally {
+        setInitialized(true);
+      }
+    };
+    load();
+  }, []);
+
+  // 設定を定期的にバックエンドへ保存
+  usePersistence(mappings, serverConfig, settings, initialized);
 
   // モーダルや削除モードの状態管理
   const [showAddModal, setShowAddModal] = useState(false);

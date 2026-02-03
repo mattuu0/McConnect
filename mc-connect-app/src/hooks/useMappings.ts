@@ -7,50 +7,8 @@ import { Mapping, TunnelStatusEvent, StatsPayload } from "../types";
  * 接続設定（マッピング）の一覧管理、保存、およびバックエンドとの通信を制御するカスタムフック
  */
 export const useMappings = () => {
-    // マッピングデータのリストを管理。初期値はlocalStorageから読み込む。
-    const [mappings, setMappings] = useState<Mapping[]>(() => {
-        const savedData = localStorage.getItem("mc-connect-mappings");
-        if (savedData) {
-            const parsedData = JSON.parse(savedData);
-            // 保存されたデータに実行時の一時ステータスを付与して初期化
-            return parsedData.map((mapping: any) => ({
-                ...mapping,
-                name: mapping.name || "名称未設定",
-                isRunning: false,
-                statusMessage: "待機中",
-                loading: false,
-                error: undefined,
-                hasFailed: false,
-                stats: undefined,
-                pingInterval: mapping.pingInterval || 5, // デフォルト5秒
-                startedAt: undefined,
-                speedHistory: { up: [], down: [] },
-                latencyHistory: []
-            }));
-        }
-        // 初期データが存在しない場合のデフォルト値
-        return [{
-            id: "default",
-            name: "Default Tunnel",
-            wsUrl: "ws://localhost:8080/ws",
-            bindAddr: "127.0.0.1",
-            localPort: 25565,
-            remotePort: 25565,
-            protocol: "TCP",
-            pingInterval: 5,
-            isRunning: false,
-            statusMessage: "待機中",
-            speedHistory: { up: [], down: [] },
-            latencyHistory: []
-        }];
-    });
+    const [mappings, setMappings] = useState<Mapping[]>([]);
 
-    /**
-     * マッピングが変更されるたびにlocalStorageに保存するエフェクト
-     */
-    useEffect(() => {
-        localStorage.setItem("mc-connect-mappings", JSON.stringify(mappings));
-    }, [mappings]);
 
     /**
      * バックエンドからのステータス更新と統計データを受信するエフェクト
@@ -252,6 +210,7 @@ export const useMappings = () => {
 
     return {
         mappings,
+        setMappings,
         startMapping,
         stopMapping,
         triggerPing,
