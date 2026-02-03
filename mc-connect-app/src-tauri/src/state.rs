@@ -5,6 +5,7 @@ use tokio::sync::Mutex;
 
 pub struct TunnelHandle {
     pub join_handle: tokio::task::JoinHandle<()>,
+    pub stats_handle: tokio::task::JoinHandle<()>, // 統計情報報告ループ用
     pub ping_tx: tokio::sync::mpsc::UnboundedSender<()>,
 }
 

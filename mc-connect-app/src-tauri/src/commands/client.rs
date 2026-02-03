@@ -48,10 +48,17 @@ pub async fn start_mapping<R: Runtime>(
     app_handle: AppHandle<R>,
     info: MappingInfo,
 ) -> Result<(), String> {
+    emit_log(
+        &app_handle,
+        "INFO",
+        format!("トンネル開始命令を受信: {}", info.id),
+    );
+
     let mut state = STATE.lock().await;
 
     if let Some(handle) = state.tunnels.remove(&info.id) {
         handle.join_handle.abort();
+        handle.stats_handle.abort();
     }
 
     let app = app_handle.clone();
@@ -104,7 +111,7 @@ pub async fn start_mapping<R: Runtime>(
     let mapping_id_stats = mapping_id.clone();
 
     // Stats reporting loop
-    tokio::spawn(async move {
+    let stats_handle = tokio::spawn(async move {
         let mut interval = interval(Duration::from_millis(1000));
         let mut last_up = 0;
         let mut last_down = 0;
@@ -201,6 +208,7 @@ pub async fn start_mapping<R: Runtime>(
         info.id,
         TunnelHandle {
             join_handle: handle,
+            stats_handle,
             ping_tx,
         },
     );
@@ -217,6 +225,7 @@ pub async fn stop_mapping<R: Runtime>(app_handle: AppHandle<R>, id: String) -> R
             format!("トンネルを手動で停止しました: {}", id),
         );
         handle.join_handle.abort();
+        handle.stats_handle.abort();
         let _ = app_handle.emit(
             "tunnel-status",
             TunnelStatus {
