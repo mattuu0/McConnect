@@ -1,8 +1,10 @@
 pub mod traits;
 pub mod rsa_engine;
+pub mod aes_engine;
 
-pub use traits::{CryptoKeyPair, KeyGenerator, Encryptor, Signer};
+pub use traits::{CryptoKeyPair, KeyGenerator, Encryptor, Signer, SymmetricCrypto};
 pub use rsa_engine::{RsaKeyPair, RsaKeyGenerator};
+pub use aes_engine::AesGcmEngine;
 
 /// アルゴリズムの種類を指定する列挙型。
 /// 将来的に ED25519 等を追加できるように設計されています。

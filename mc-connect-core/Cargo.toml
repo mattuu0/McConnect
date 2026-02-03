@@ -20,3 +20,4 @@ rsa = { version = "0.9", features = ["sha2"] }
 rand = "0.8"
 pkcs8 = { version = "0.10", features = ["alloc", "pem"] }
 base64 = "0.22"
+aes-gcm = "0.10"
