@@ -117,12 +117,18 @@ export const MappingCard = ({
                                 )}
                             </div>
                             {/* 接続設定の詳細情報（プロトコル、ポート等） */}
-                            <div className="flex items-center flex-wrap gap-2 text-xs font-bold leading-none">
+                            <div className="flex items-center flex-wrap gap-2 text-xs font-bold leading-none mb-2">
                                 <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white tracking-widest text-[9px] uppercase">{mapping.protocol}</span>
                                 <span className="text-slate-400 font-mono">Port: <span className="text-slate-700">{mapping.remotePort}</span></span>
                                 <span className="text-slate-300 hidden md:inline">|</span>
                                 <span className="text-slate-400 font-mono hidden md:inline">{mapping.bindAddr}:{mapping.localPort}</span>
                             </div>
+                            {/* ステータスメッセージの表示 */}
+                            {mapping.statusMessage && mapping.statusMessage !== "待機中" && mapping.statusMessage !== "インポート済み" && (
+                                <div className={`text-[10px] font-bold ${mapping.isRunning ? 'text-green-600' : 'text-slate-500'} animate-pulse`}>
+                                    {mapping.statusMessage}
+                                </div>
+                            )}
                         </div>
                     </div>
 

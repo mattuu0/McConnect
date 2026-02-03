@@ -91,17 +91,19 @@ export const useMappings = () => {
             await invoke("start_mapping", {
                 info: {
                     id: mapping.id,
-                    ws_url: mapping.wsUrl,
-                    bind_addr: mapping.bindAddr,
-                    local_port: mapping.localPort,
-                    remote_port: mapping.remotePort,
+                    wsUrl: mapping.wsUrl,
+                    bindAddr: mapping.bindAddr,
+                    localPort: mapping.localPort,
+                    remotePort: mapping.remotePort,
                     protocol: mapping.protocol,
-                    ping_interval: mapping.pingInterval
+                    pingInterval: mapping.pingInterval,
+                    publicKey: mapping.publicKey
                 }
             });
         } catch (error) {
+            console.error("Rustコマンド失敗:", error);
             // 起動に失敗した場合の処理
-            setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, loading: false, error: `起動失敗`, hasFailed: true } : m));
+            setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, loading: false, error: `起動失敗: ${error}`, hasFailed: true } : m));
             setTimeout(() => {
                 setMappings(prevMappings => prevMappings.map(m => m.id === id ? { ...m, hasFailed: false } : m));
             }, 3000);
@@ -201,4 +203,3 @@ export const useMappings = () => {
         importConfig
     };
 };
-
