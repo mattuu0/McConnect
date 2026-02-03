@@ -36,6 +36,7 @@ pub struct MappingInfo {
     pub remote_port: u16,
     pub protocol: String,
     pub ping_interval: u64,
+    pub public_key: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -98,6 +99,7 @@ async fn start_mapping<R: Runtime>(app_handle: AppHandle<R>, info: MappingInfo) 
     let remote_port = info.remote_port;
     let proto_str = info.protocol.clone();
     let ping_interval = info.ping_interval;
+    let public_key_str = info.public_key.clone();
 
     emit_log(&app, "INFO", format!("トンネルを開始します: [{}] {}:{} -> {} (Ping: {}s)", mapping_id, bind_addr, local_port, ws_url, ping_interval));
 
@@ -107,6 +109,18 @@ async fn start_mapping<R: Runtime>(app_handle: AppHandle<R>, info: MappingInfo) 
         _ => return Err(format!("Unsupported protocol: {}", proto_str)),
     };
 
+    // 公開鍵のパース
+    let server_public_key = if let Some(key_str) = public_key_str {
+        if key_str.trim().is_empty() {
+             return Err("公開鍵が空です。".into());
+        }
+        use base64::{Engine as _, engine::general_purpose};
+        let der = general_purpose::STANDARD.decode(key_str.trim()).map_err(|e| format!("公開鍵のデコードに失敗: {}", e))?;
+        Arc::new(mc_connect_core::encryption::RsaKeyPair::from_public_der(&der).map_err(|e| e.to_string())?)
+    } else {
+        return Err("公開鍵が設定されていません。".into());
+    };
+
     let stats = Arc::new(TunnelStats::new());
     let (ping_tx, ping_rx) = tokio::sync::mpsc::unbounded_channel();
     
@@ -114,7 +128,7 @@ async fn start_mapping<R: Runtime>(app_handle: AppHandle<R>, info: MappingInfo) 
     let app_stats = app.clone();
     let mapping_id_stats = mapping_id.clone();
     
-    // Stats reporting loop (runs once per mapping)
+    // Stats reporting loop
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_millis(1000));
         let mut last_up = 0;
@@ -126,11 +140,9 @@ async fn start_mapping<R: Runtime>(app_handle: AppHandle<R>, info: MappingInfo) 
             let cur_up = stats_clone.upload_total.load(Ordering::Relaxed);
             let cur_down = stats_clone.download_total.load(Ordering::Relaxed);
             
-            // Calculate bps based on 1s interval
             let speed_up = cur_up.saturating_sub(last_up);
             let speed_down = cur_down.saturating_sub(last_down);
             
-            // Update the speeds in the stats object
             stats_clone.upload_speed.store(speed_up, Ordering::Relaxed);
             stats_clone.download_speed.store(speed_down, Ordering::Relaxed);
             
@@ -159,7 +171,7 @@ async fn start_mapping<R: Runtime>(app_handle: AppHandle<R>, info: MappingInfo) 
             proto,
             stats,
             ping_rx,
-            ping_interval,
+            server_public_key,
         ).await {
             Ok(_) => {
                 emit_log(&app, "INFO", format!("トンネルセッション終了: {}", mapping_id));

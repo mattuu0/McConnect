@@ -15,7 +15,9 @@ export interface Mapping {
     /** 接続先（外部）のポート番号 */
     remotePort: number;
     /** 使用プロトコル（"TCP" または "UDP"） */
-    protocol: string;
+    protocol: "TCP" | "UDP";
+    /** プロキシサーバーの公開鍵（暗号化用） */
+    publicKey?: string;
     /** PING送信の間隔（秒） */
     pingInterval: number;
     /** 現在トンネルが実行中かどうか */

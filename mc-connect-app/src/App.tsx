@@ -22,7 +22,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>("dashboard");
 
   // マッピングデータの操作用フック
-  const { mappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings } = useMappings();
+  const { mappings, startMapping, stopMapping, triggerPing, addMapping, updateMapping, deleteMappings, importConfig } = useMappings();
 
   // ログデータの操作用フック
   const { logs, logEndRef } = useLogs(currentView);
@@ -123,6 +123,7 @@ export default function App() {
                 onEdit={handleEdit}
                 onDeleteSelected={handleDeleteSelected}
                 onToggleSelect={handleToggleSelect}
+                onImportConfig={importConfig}
               />
             }
             {currentView === "console" &&

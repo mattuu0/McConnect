@@ -210,6 +210,46 @@ export const useMappings = () => {
         setMappings(prevMappings => prevMappings.filter(mapping => !ids.includes(mapping.id)));
     };
 
+    /**
+     * 設定ファイル（JSON）からマッピングを一括インポートする
+     * @param configJson インポートするJSON文字列
+     */
+    const importConfig = (configJson: string) => {
+        try {
+            const config = JSON.parse(configJson);
+            const { name, ws_url, mappings: importedMappings, public_key } = config;
+
+            if (!importedMappings || !Array.isArray(importedMappings)) {
+                throw new Error("Invalid config format: mappings must be an array");
+            }
+
+            const newMappings: Mapping[] = importedMappings.map((m: any) => ({
+                id: Math.random().toString(36).substr(2, 9),
+                name: `${name} (${m.protocol}:${m.port})`,
+                wsUrl: ws_url || "ws://localhost:8080/ws",
+                bindAddr: "127.0.0.1",
+                localPort: m.port,
+                remotePort: m.port,
+                protocol: (m.protocol || "TCP").toUpperCase() as "TCP" | "UDP",
+                publicKey: public_key,
+                pingInterval: 5,
+                isRunning: false,
+                statusMessage: "インポート済み",
+                loading: false,
+                hasFailed: false,
+                speedHistory: { up: [], down: [] },
+                latencyHistory: []
+            }));
+
+            setMappings(prev => [...prev, ...newMappings]);
+            return true;
+        } catch (error) {
+            console.error("Import failed", error);
+            alert("インポートに失敗しました。ファイル形式を確認してください。");
+            return false;
+        }
+    };
+
     return {
         mappings,
         startMapping,
@@ -217,7 +257,8 @@ export const useMappings = () => {
         triggerPing,
         addMapping,
         updateMapping,
-        deleteMappings
+        deleteMappings,
+        importConfig
     };
 };
 

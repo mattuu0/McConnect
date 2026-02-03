@@ -29,6 +29,8 @@ interface DashboardProps {
     onDeleteSelected: () => void;
     /** 単一マッピングの選択状態を反転させるコールバック */
     onToggleSelect: (id: string) => void;
+    /** 設定ファイルをインポートする関数 */
+    onImportConfig: (configJson: string) => boolean;
 }
 
 /**
@@ -45,8 +47,28 @@ export const Dashboard = ({
     onTriggerPing,
     onEdit,
     onDeleteSelected,
-    onToggleSelect
+    onToggleSelect,
+    onImportConfig
 }: DashboardProps) => {
+    /**
+     * ファイル選択時の処理
+     */
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target?.result as string;
+            if (onImportConfig(content)) {
+                alert("設定をインポートしました。");
+            }
+        };
+        reader.readAsText(file);
+        // 同じファイルを再度選択できるように値をリセット
+        event.target.value = "";
+    };
+
     return (
         <motion.div
             key="dashboard"
@@ -103,6 +125,17 @@ export const Dashboard = ({
                                     >
                                         <Trash2 size={20} />
                                     </button>
+                                    {/* インポートボタン */}
+                                    <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 py-2.5 rounded-xl font-black flex items-center gap-2 shadow-sm active:scale-95 transition-all text-sm h-[46px] border-b-4 border-slate-300 active:border-b-0 active:translate-y-1">
+                                        <ArrowUpCircle size={18} />
+                                        <span>インポート</span>
+                                        <input
+                                            type="file"
+                                            accept=".json"
+                                            className="hidden"
+                                            onChange={handleFileChange}
+                                        />
+                                    </label>
                                     {/* 新規作成ボタン */}
                                     <button
                                         onClick={() => setShowAddModal(true)}

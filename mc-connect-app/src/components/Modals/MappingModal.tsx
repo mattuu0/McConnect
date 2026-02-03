@@ -130,6 +130,17 @@ export const MappingModal = ({
                                 </div>
                             </div>
 
+                            {/* 公開鍵の設定 */}
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">プロキシ公開鍵 (Base64)</label>
+                                <textarea
+                                    value={mapping.publicKey || ""}
+                                    onChange={event => onChange({ ...mapping, publicKey: event.target.value })}
+                                    className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-mono text-[10px] h-24 focus:border-[#16a34a] focus:bg-white outline-none transition-all resize-none"
+                                    placeholder="Base64 encoded public key..."
+                                />
+                            </div>
+
                             {/* フッター：アクションボタン */}
                             <div className="pt-4 flex flex-col sm:flex-row gap-3">
                                 <button
