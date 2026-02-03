@@ -253,7 +253,7 @@ async fn start_server<R: Runtime>(
     allowed_ports: Vec<(u16, String)>,
     private_key_b64: String
 ) -> Result<(), String> {
-    let mut state = STATE.lock().await;
+    let state = STATE.lock().await;
     if state.server_handle.is_some() {
         return Err("Server is already running".into());
     }
