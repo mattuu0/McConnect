@@ -7,74 +7,75 @@ use url::Url;
 use log::{error, info};
 use tokio::time::{interval, Duration, Instant};
 
-use crate::models::packet::{Message, Command, ConnectPayload, ConnectResponsePayload, Protocol, PingPayload};
+use crate::models::packet::{Message, Command, ConnectResponsePayload, Protocol, PingPayload};
+use crate::encryption::{RsaKeyPair, create_secure_connect_packet};
 use super::stats::TunnelStats;
 
 /// [handle_tunnel]
-/// 個別の接続セッション（1つのTCP接続からゲートウェイへのトンネル）を処理するメインロジックです。
-/// 
-/// この関数は以下の役割を担います：
-/// 1. ゲートウェイへの WebSocket 接続の確立
-/// 2. プロトコル・ポート指定によるハンドシェイク
-/// 3. TCP -> WS（アップロード）の転送タスク管理
-/// 4. 定期的な Ping 送信による死活監視と RTT 計測
-/// 5. WS -> TCP（ダウンロード）の転送、および各種制御メッセージの処理
+/// セキュアなトンネル接続を確立し、データの送受信を行うメインロジックです。
 pub async fn handle_tunnel(
     tcp_stream: TcpStream, 
     ws_url: String, 
     remote_port: u16, 
     protocol: Protocol,
     stats: Arc<TunnelStats>,
-    mut manual_ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>
+    mut manual_ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+    server_public_key: Arc<RsaKeyPair>, // サーバーの公開鍵
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     
-    // --- 準備フェーズ: WebSocket 接続 ---
+    // 1. WebSocket 接続の開始
     let url = Url::parse(&ws_url)?;
-    // 指定されたURL（ゲートウェイ）に対して WebSocket 接続を開始
     let (ws_stream, _) = connect_async(url).await?;
-    // 書き込み用(Sink)と読み取り用(Stream)に分割
     let (mut ws_write, mut ws_read) = ws_stream.split();
 
-    // --- ハンドシェイクフェーズ ---
-    // ゲートウェイに対して「どのポートにどのプロトコルで繋いでほしいか」を通知
-    let connect_content = ConnectPayload { protocol, port: remote_port, compression: None };
-    let packet = Message::from_payload(Command::Connect, &connect_content)?;
-    ws_write.send(WsMessage::Binary(packet.to_vec()?)).await?;
+    // 2. セキュアハンドシェイク (Handshake Phase)
+    // 共通鍵(AES)を生成し、それをサーバーの公開鍵(RSA)で暗号化したパケットを作成します。
+    let (secure_context, handshake_packet) = create_secure_connect_packet(
+        protocol, 
+        remote_port, 
+        server_public_key.as_ref()
+    )?;
 
-    // ゲートウェイからの応答待ち
+    // ハンドシェイクパケットを送信（このパケット自体は暗号化されていないコンテナで送る）
+    ws_write.send(WsMessage::Binary(handshake_packet.to_vec()?)).await?;
+
+    // サーバーからの応答待ち（30秒タイムアウトは WebSocket レイヤーやサーバー側で管理）
     if let Some(msg) = ws_read.next().await {
         let bin = msg?.into_data();
         let res_packet = Message::from_slice(&bin)?;
+        
+        // 応答パケットを復号
+        let res_packet = secure_context.unseal_message(res_packet)?;
+
         if res_packet.command == Command::ConnectResponse {
             let res: ConnectResponsePayload = res_packet.deserialize_payload()?;
             if !res.success {
-                // ゲートウェイ側で接続が拒否（許可されていないポートなど）された場合
-                return Err(format!("Gateway rejected connection: {}", res.message).into());
+                return Err(format!("Gateway rejected secure connection: {}", res.message).into());
             }
+            info!("Secure handshake successful. Symmetric encryption is now active.");
         } else {
-            return Err("Protocol error: Unexpected packet received during handshake".into());
+            return Err("Protocol error: Expected ConnectResponse after SecureConnect".into());
         }
+    } else {
+        return Err("Connection closed by server during handshake".into());
     }
 
-    // TCPストリームを読み取り側と書き込み側に分割
+    // --- 以降、すべての通信は secure_context を通じて暗号化されます ---
+
     let (mut tcp_read, mut tcp_write) = tcp_stream.into_split();
-    
-    // 他の非同期タスクから WebSocket の書き込み側へデータを送るための内部チャネル
     let (internal_tx, mut internal_rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
 
-    // --- タスク 1: TCP -> WS (Upload) ---
-    // ローカルアプリ（Minecraft等）からのデータを読み取り、WebSocket経由で送信します。
+    // タスク 1: TCP -> WS (Upload)
     let stats_up = Arc::clone(&stats);
     let itx_up = internal_tx.clone();
     tokio::spawn(async move {
-        let mut buf = [0u8; 8192]; // 8KB バッファ
+        let mut buf = [0u8; 8192];
         loop {
             match tcp_read.read(&mut buf).await {
-                Ok(0) => break, // TCP接続が正常に閉じられた
+                Ok(0) => break,
                 Ok(n) => {
-                    // 統計情報を更新（アップロード量加算）
                     stats_up.upload_total.fetch_add(n as u64, std::sync::atomic::Ordering::Relaxed);
-                    // データを MessagePack パケットとして送信キューへ
+                    // データを Data パケットとして送信キューへ
                     if itx_up.send(Message::new(Command::Data, buf[..n].to_vec())).is_err() {
                         break;
                     }
@@ -85,18 +86,15 @@ pub async fn handle_tunnel(
                 }
             }
         }
-        // TCPが切れたらゲートウェイにも切断を知らせる
         let _ = itx_up.send(Message::new(Command::Disconnect, vec![]));
     });
 
-    // --- タスク 2: 定期 Ping 送信 ---
-    // 5秒おきに Ping を送り、セッションの維持（タイムアウト防止）と遅延計測を行います。
+    // タスク 2: 定期 Ping 送信
     let itx_ping = internal_tx.clone();
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(5));
         loop {
             interval.tick().await;
-            // 現在のタイムスタンプを載せて送信（Pong で戻ってきた時に RTT を計算する）
             let ping = PingPayload { timestamp: Instant::now().elapsed().as_millis() as u64 };
             if let Ok(p) = Message::from_payload(Command::Ping, &ping) {
                 if itx_ping.send(p).is_err() { break; }
@@ -104,18 +102,26 @@ pub async fn handle_tunnel(
         }
     });
 
-    // --- メインループ: 各種イベントの調停 ---
-    // WebSocketからのダウンロード、内部タスクからの送信、手動Ping要求を待ち受けます。
+    // メインループ: 通信の調停
     loop {
         tokio::select! {
-            // [ルートA] ゲートウェイ(WS) からの着信データを処理
+            // [受信] ゲートウェイ(WS) からの暗号化パケットを受信
             Some(msg) = ws_read.next() => {
                 match msg {
                     Ok(ws_msg) => {
                         let bin = ws_msg.into_data();
-                        let packet = Message::from_slice(&bin)?;
+                        let encrypted_packet = Message::from_slice(&bin)?;
+                        
+                        // パケットを復号
+                        let packet = match secure_context.unseal_message(encrypted_packet) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                error!("Packet decryption error: {}. Closing tunnel.", e);
+                                break;
+                            }
+                        };
+
                         match packet.command {
-                            // 通常データ: TCP側（ローカルアプリ）へ書き込み
                             Command::Data => {
                                 stats.download_total.fetch_add(packet.payload.len() as u64, std::sync::atomic::Ordering::Relaxed);
                                 if let Err(e) = tcp_write.write_all(&packet.payload).await {
@@ -123,16 +129,14 @@ pub async fn handle_tunnel(
                                     break;
                                 }
                             }
-                            // 遅延計測の応答: 統計情報を更新
                             Command::Pong => {
                                 if let Ok(payload) = packet.deserialize_payload::<PingPayload>() {
                                     let rtt = (Instant::now().elapsed().as_millis() as u64).saturating_sub(payload.timestamp);
                                     stats.last_rtt_ms.store(rtt, std::sync::atomic::Ordering::Relaxed);
                                 }
                             }
-                            // ゲートウェイ側からの切断要求
                             Command::Disconnect => {
-                                info!("Gateway requested disconnection.");
+                                info!("Gateway requested disconnection from secure tunnel.");
                                 break;
                             }
                             _ => {}
@@ -145,30 +149,40 @@ pub async fn handle_tunnel(
                 }
             }
 
-            // [ルートB] 内部のUploadタスクやPingタスクからの送信要求を処理
-            Some(packet) = internal_rx.recv() => {
+            // [送信] 内部タスクからの送信要求を受け取り、暗号化して WS へ送る
+            Some(mut packet) = internal_rx.recv() => {
+                // パケットを暗号化
+                packet = match secure_context.seal_message(packet) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("Packet encryption error: {}", e);
+                        break;
+                    }
+                };
+
                 if let Ok(bin) = packet.to_vec() {
                     if let Err(e) = ws_write.send(WsMessage::Binary(bin)).await {
                         error!("WebSocket send error: {}", e);
                         break;
                     }
                 }
-                // 切断パケットを送信した場合はループを終了
                 if packet.command == Command::Disconnect { break; }
             }
 
-            // [ルートC] UIなど外部からの明示的な Ping 要求
+            // [手動Ping] 暗号化して送信
             Some(_) = manual_ping_rx.recv() => {
                 let ping = PingPayload { timestamp: Instant::now().elapsed().as_millis() as u64 };
                 if let Ok(p) = Message::from_payload(Command::Ping, &ping) {
-                    if let Ok(bin) = p.to_vec() {
-                        let _ = ws_write.send(WsMessage::Binary(bin)).await;
+                    if let Ok(sealed) = secure_context.seal_message(p) {
+                        if let Ok(bin) = sealed.to_vec() {
+                            let _ = ws_write.send(WsMessage::Binary(bin)).await;
+                        }
                     }
                 }
             }
         }
     }
     
-    info!("Tunnel session closed.");
+    info!("Secure tunnel session closed.");
     Ok(())
 }
