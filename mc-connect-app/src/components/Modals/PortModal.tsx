@@ -26,12 +26,12 @@ export const PortModal = ({ isOpen, onClose, onAdd }: PortModalProps) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 border border-slate-200 relative overflow-hidden"
+                        className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 border border-slate-200 relative my-auto"
                     >
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-black text-slate-900 italic tracking-tight uppercase">ポート追加</h3>
