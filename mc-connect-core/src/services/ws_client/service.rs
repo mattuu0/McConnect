@@ -27,25 +27,45 @@ impl WsClientService {
         remote_target_port: u16,
         protocol: Protocol,
         stats: Arc<TunnelStats>,
-        mut ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+        ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
         server_public_key: Arc<RsaKeyPair>,
     ) -> Result<(), CryptoError> {
         info!("ゲートウェイへのセキュア接続を確認中: {}...", ws_url);
-        match Self::check_connectivity(
+        Self::check_connectivity(
             &ws_url,
             remote_target_port,
             protocol.clone(),
             Arc::clone(&server_public_key),
         )
-        .await
-        {
-            Ok(_) => info!("ゲートウェイとのセキュアハンドシェイクに成功しました。準備完了です。"),
-            Err(e) => {
-                error!("ゲートウェイとの接続に失敗しました: {}", e);
-                return Err(e);
-            }
-        }
+        .await?;
 
+        info!("ゲートウェイとのセキュアハンドシェイクに成功しました。準備完了です。");
+
+        Self::run_tunnel_server(
+            bind_addr,
+            local_port,
+            ws_url,
+            remote_target_port,
+            protocol,
+            stats,
+            ping_rx,
+            server_public_key,
+        )
+        .await
+    }
+
+    /// [run_tunnel_server]
+    /// ローカルでポート待機を開始し、接続ごとにセッションを確立します。
+    pub async fn run_tunnel_server(
+        bind_addr: String,
+        local_port: u16,
+        ws_url: String,
+        remote_target_port: u16,
+        protocol: Protocol,
+        stats: Arc<TunnelStats>,
+        mut ping_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+        server_public_key: Arc<RsaKeyPair>,
+    ) -> Result<(), CryptoError> {
         let listener = TcpListener::bind(format!("{}:{}", bind_addr, local_port)).await?;
         info!("TCP リスナーを開始しました: {}:{}", bind_addr, local_port);
 
@@ -96,7 +116,7 @@ impl WsClientService {
         Ok(())
     }
 
-    async fn check_connectivity(
+    pub async fn check_connectivity(
         ws_url: &str,
         remote_port: u16,
         protocol: Protocol,

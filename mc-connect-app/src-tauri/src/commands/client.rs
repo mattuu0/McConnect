@@ -150,54 +150,80 @@ pub async fn start_mapping<R: Runtime>(
     });
 
     let handle = tokio::spawn(async move {
-        let _ = app.emit(
-            "tunnel-status",
-            TunnelStatus {
-                id: mapping_id.clone(),
-                running: true,
-                message: "Establishing tunnel...".into(),
-            },
-        );
-
-        match WsClientService::start_tunnel_with_protocol(
-            bind_addr,
-            local_port,
-            ws_url,
+        // Step 1: Handshake (while frontend is still 'loading')
+        match WsClientService::check_connectivity(
+            &ws_url,
             remote_port,
-            proto,
-            stats,
-            ping_rx,
-            server_public_key,
+            proto.clone(),
+            Arc::clone(&server_public_key),
         )
         .await
         {
             Ok(_) => {
-                emit_log(
-                    &app,
-                    "INFO",
-                    format!("トンネルセッション終了: {}", mapping_id),
-                );
+                // Step 2: Handshake Success -> Notify UI
                 let _ = app.emit(
                     "tunnel-status",
                     TunnelStatus {
-                        id: mapping_id,
-                        running: false,
-                        message: "Tunnel stopped".into(),
+                        id: mapping_id.clone(),
+                        running: true,
+                        message: "接続完了".into(),
                     },
                 );
+
+                // Step 3: Run the server loop
+                if let Err(e) = WsClientService::run_tunnel_server(
+                    bind_addr,
+                    local_port,
+                    ws_url,
+                    remote_port,
+                    proto,
+                    stats,
+                    ping_rx,
+                    server_public_key,
+                )
+                .await
+                {
+                    emit_log(
+                        &app,
+                        "ERROR",
+                        format!("トンネルエラー [{}]: {}", mapping_id, e),
+                    );
+                    let _ = app.emit(
+                        "tunnel-status",
+                        TunnelStatus {
+                            id: mapping_id,
+                            running: false,
+                            message: format!("エラー: {}", e),
+                        },
+                    );
+                } else {
+                    emit_log(
+                        &app,
+                        "INFO",
+                        format!("トンネルセッション終了: {}", mapping_id),
+                    );
+                    let _ = app.emit(
+                        "tunnel-status",
+                        TunnelStatus {
+                            id: mapping_id,
+                            running: false,
+                            message: "トンネルが停止しました".into(),
+                        },
+                    );
+                }
             }
             Err(e) => {
                 emit_log(
                     &app,
                     "ERROR",
-                    format!("トンネルエラー [{}]: {}", mapping_id, e),
+                    format!("接続テスト失敗 [{}]: {}", mapping_id, e),
                 );
                 let _ = app.emit(
                     "tunnel-status",
                     TunnelStatus {
                         id: mapping_id,
                         running: false,
-                        message: format!("Error: {}", e),
+                        message: format!("接続失敗: {}", e),
                     },
                 );
             }
@@ -231,7 +257,7 @@ pub async fn stop_mapping<R: Runtime>(app_handle: AppHandle<R>, id: String) -> R
             TunnelStatus {
                 id: id,
                 running: false,
-                message: "Stopped".into(),
+                message: "停止しました".into(),
             },
         );
     }

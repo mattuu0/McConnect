@@ -157,11 +157,16 @@ export const MappingCard = ({
                                 `}
                             >
                                 {mapping.loading ? (
-                                    <span className="animate-pulse">処理中...</span>
+                                    <div className="flex items-center gap-2 text-slate-400">
+                                        <RefreshCw size={18} className="animate-spin text-[#16a34a]" />
+                                        <span>接続中...</span>
+                                    </div>
                                 ) : mapping.isRunning ? (
-                                    <><Square size={16} fill="currentColor" className="mr-1" /> 切断する</>
+                                    <div className="flex items-center gap-2">
+                                        <Square size={14} fill="currentColor" /> 停止
+                                    </div>
                                 ) : mapping.hasFailed ? (
-                                    "失敗"
+                                    "再試行"
                                 ) : (
                                     <><Play size={16} fill="currentColor" className="mr-1" /> 接続開始</>
                                 )}
