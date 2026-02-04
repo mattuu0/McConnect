@@ -83,7 +83,7 @@ export interface LogEntry {
 /**
  * アプリケーションの表示画面（ビュー）の識別子
  */
-export type View = "dashboard" | "server" | "console" | "settings" | "about";
+export type View = "dashboard" | "server" | "console" | "settings";
 
 /**
  * サーバー設定の状態

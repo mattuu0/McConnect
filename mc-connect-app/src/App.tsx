@@ -14,7 +14,6 @@ import { Sidebar } from "./components/Sidebar";
 import { MappingModal } from "./components/Modals/MappingModal";
 import { Dashboard } from "./pages/Dashboard";
 import { Console } from "./pages/Console";
-import { About } from "./pages/About";
 import { SettingsPage } from "./pages/Settings";
 import { ServerPage } from "./pages/Server";
 
@@ -197,9 +196,6 @@ export default function App() {
                 settings={settings}
                 onSettingsChange={setSettings}
               />
-            }
-            {currentView === "about" &&
-              <About key="about" />
             }
           </AnimatePresence>
         </div>

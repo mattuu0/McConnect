@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Terminal, Info, Menu, Server, Settings } from "lucide-react";
+import { Shield, Terminal, Menu, Server, Settings } from "lucide-react";
 import { View, AppSettings } from "../types";
 import { twMerge } from "tailwind-merge";
 import { clsx, type ClassValue } from "clsx";
@@ -104,7 +104,6 @@ export const Sidebar = ({ currentView, setCurrentView, settings }: SidebarProps)
                     )}
                     <SidebarItem viewId="console" icon={Terminal} label="システムログ" />
                     <SidebarItem viewId="settings" icon={Settings} label="設定" />
-                    <SidebarItem viewId="about" icon={Info} label="アプリケーション情報" />
                 </nav>
 
                 {/* サイドバーフッター：稼働状態の表示 */}
@@ -164,4 +163,3 @@ export const Sidebar = ({ currentView, setCurrentView, settings }: SidebarProps)
         </>
     );
 };
-
